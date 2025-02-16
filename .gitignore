@@ -1,1 +1,6 @@
 /bin/
+/client_secret.json
+/auth-cache.json
+.idea
+pkg
+go.sum
