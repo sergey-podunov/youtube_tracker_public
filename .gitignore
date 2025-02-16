@@ -4,3 +4,5 @@
 .idea
 pkg
 go.sum
+/config.json
+/k8s/postgres-secrets.yml
