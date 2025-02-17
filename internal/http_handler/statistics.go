@@ -2,7 +2,7 @@ package http_handler
 
 import (
 	"context"
-	"youtube_tracker/api"
+	"youtube_tracker/internal/api"
 )
 
 type StatisticsHttpHandler struct {

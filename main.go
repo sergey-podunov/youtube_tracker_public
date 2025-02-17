@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
-	"youtube_tracker/api"
-	yt_http "youtube_tracker/http_handler"
+	"youtube_tracker/internal/api"
+	yt_http "youtube_tracker/internal/http_handler"
 )
 
 func main() {

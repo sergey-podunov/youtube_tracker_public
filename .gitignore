@@ -1,4 +1,4 @@
-/bin/
+/cmd/
 /client_secret.json
 /auth-cache.json
 .idea
@@ -8,3 +8,4 @@ go.sum
 /k8s/postgres-secrets.yml
 api
 youtube_tracker.exe
+/cmd/

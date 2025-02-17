@@ -6,10 +6,10 @@ import (
 	"context"
 	"log"
 	"testing"
+	"youtube_tracker/internal/testhelpers"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"youtube_tracker/testhelpers"
 )
 
 type CustomerRepoTestSuite struct {
