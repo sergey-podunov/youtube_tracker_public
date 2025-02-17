@@ -1,0 +1,5 @@
+### GET books
+
+GET {{url}}/books/1
+
+###
