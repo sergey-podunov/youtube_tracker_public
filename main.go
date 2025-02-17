@@ -9,10 +9,8 @@ import (
 
 func main() {
 
-	// Create http_handler instance.
-	bookService := &yt_http.BooksService{}
-	// Create generated server.
-	srv, err := api.NewServer(bookService)
+	httpHandler := &yt_http.StatisticsHttpHandler{}
+	srv, err := api.NewServer(httpHandler)
 	if err != nil {
 		log.Fatal(err)
 	}

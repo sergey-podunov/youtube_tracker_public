@@ -4,9 +4,20 @@ info:
   description: API for retrieving information about books
   version: 1.0.0
 servers:
-  - url: http://localhost:3000
+  - url: http://localhost:8080
     description: Local server
 paths:
+  /statistics/generate:
+    post:
+      description: Initiate statistics generation
+      responses:
+        202:
+          description: Task started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatGenerationStarted'
+
   /books/{id}:
     get:
       summary: Get a book by ID
@@ -30,6 +41,16 @@ paths:
           content: {}
 components:
   schemas:
+    StatGenerationStarted:
+      description: Generation started
+      type: object
+      required:
+        - statusPath
+      properties:
+        statusPath:
+          type: string
+          description: path for requests about status of the generation task
+          example: /statistics/job/1
     Book:
       type: object
       required:
