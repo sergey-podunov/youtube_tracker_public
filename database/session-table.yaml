@@ -1,0 +1,26 @@
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: session
+  namespace: default
+spec:
+  database: psdb
+  name: session
+  schema:
+    postgres:
+      primaryKey: [id]
+      columns:
+      - name: id
+        type: text
+        constraints:
+          notNull: true
+      - name: user_id
+        type: text
+        constraints:
+          notNull: true
+      - name: expire_at
+        type: timestamp without time zone
+        constraints:
+          notNull: true
+      - name: user_name_4
+        type: text
