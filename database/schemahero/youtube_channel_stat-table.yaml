@@ -1,0 +1,35 @@
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: youtube_channel_stat
+  namespace: default
+spec:
+  database: psdb
+  name: youtube_channel_stat
+  schema:
+    postgres:
+      primaryKey: [ youtube_channel_stat_id ]
+      foreignKeys:
+        - columns:
+            - youtube_channel_id
+          references:
+            table: youtube_channel
+            columns:
+              - youtube_channel_id
+      columns:
+        - name: youtube_channel_stat_id
+          type: serial
+          constraints:
+            notNull: true
+        - name: youtube_channel_id
+          type: bigint
+          constraints:
+            notNull: true
+        - name: created_at
+          type: timestamp without time zone
+          constraints:
+            notNull: true
+        - name: subscribtions_count
+          type: bigint
+          constraints:
+            notNull: true
