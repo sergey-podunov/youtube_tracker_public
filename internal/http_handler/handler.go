@@ -10,7 +10,13 @@ import (
 
 type MainHttpHandler struct {
 	api.UnimplementedHandler
-	stats *stats.ChannelRepository
+	channelRepository *stats.ChannelRepository
+}
+
+func NewHttpHandler(channelRepository *stats.ChannelRepository) *MainHttpHandler {
+	return &MainHttpHandler{
+		channelRepository: channelRepository,
+	}
 }
 
 func (s MainHttpHandler) StatisticsGeneratePost(ctx context.Context) (*api.StatGenerationStarted, error) {
@@ -21,9 +27,9 @@ func (s MainHttpHandler) StatisticsGeneratePost(ctx context.Context) (*api.StatG
 
 var startTime = time.Now()
 
-func (s MainHttpHandler) StateGet(ctx context.Context) (*api.State, error) {
+func (s MainHttpHandler) StatusGet(ctx context.Context) (*api.Status, error) {
 	uptime := time.Since(startTime)
-	return &api.State{
+	return &api.Status{
 		Uptime: api.NewOptString(fmt.Sprintf("%d ms", uptime.Milliseconds())),
 	}, nil
 }

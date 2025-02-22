@@ -7,7 +7,7 @@ servers:
   - url: http://localhost:8080
     description: Local server
 paths:
-  /state:
+  /status:
     get:
       summary: current service state
       description: Returns a Status object
@@ -17,7 +17,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/State'
+                $ref: '#/components/schemas/Status'
   /youtube/channel:
     post:
       description: Store new Youtube channel
@@ -61,7 +61,7 @@ paths:
                 $ref: '#/components/schemas/StatGenerationStarted'
 components:
   schemas:
-    State:
+    Status:
       description: Service status
       type: object
       properties:

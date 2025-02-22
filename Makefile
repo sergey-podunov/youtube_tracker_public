@@ -17,6 +17,9 @@ clean:
 	rm -f internal/api/*
 
 test:
+	go test -tags=database ./...
+
+integration_test:
 	go test -tags=integration ./...
 
 test_coverage:
