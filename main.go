@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	httpHandler := &yt_http.StatisticsHttpHandler{}
+	httpHandler := &yt_http.MainHttpHandler{}
 	srv, err := api.NewServer(httpHandler)
 	if err != nil {
 		log.Fatal(err)
