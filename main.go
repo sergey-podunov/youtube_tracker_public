@@ -9,6 +9,7 @@ import (
 	"time"
 	"youtube_tracker/internal/api"
 	mainHanler "youtube_tracker/internal/http_handler"
+	"youtube_tracker/internal/youtube/stats"
 )
 
 type App struct {
@@ -16,8 +17,13 @@ type App struct {
 	httpServer *http.Server
 }
 
-func NewApp(host string, port int, dbUrl string) (*App, error) {
-	httpHandler := &mainHanler.MainHttpHandler{}
+func NewApp(ctx context.Context, host string, port int, dbUrl string) (*App, error) {
+	channelRepository, err := stats.NewChannelRepository(ctx, dbUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	httpHandler := mainHanler.NewHttpHandler(channelRepository)
 	srv, err := api.NewServer(httpHandler)
 	if err != nil {
 		return nil, err
@@ -51,8 +57,11 @@ func (app *App) Stop(ctx context.Context) error {
 }
 
 func main() {
+	ctx := context.Background()
+
 	//todo read params from a config file
 	app, err := NewApp(
+		ctx,
 		"localhost",
 		8080,
 		"postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable",

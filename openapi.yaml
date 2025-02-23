@@ -21,6 +21,13 @@ paths:
   /youtube/channel:
     post:
       description: Store new Youtube channel
+      requestBody:
+        description: Payload for example
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/YoutubeChannel'
       responses:
         201:
           description: Successfully stored
@@ -37,6 +44,7 @@ paths:
           name: id
           schema:
             type: integer
+            format: int64
           required: true
           description: ID of the channel
       responses:

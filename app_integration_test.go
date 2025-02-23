@@ -1,13 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/ogen-go/ogen/conv"
 	"io"
 	"log"
 	"net/http"
 	"testing"
 	"time"
+	"youtube_tracker/internal/api"
 	"youtube_tracker/internal/testhelpers"
 
 	"github.com/stretchr/testify/require"
@@ -21,7 +25,7 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 	pgContainer := createPgContainer(ctx)
 	defer pgContainer.Container.Terminate(ctx)
 
-	app := createApp(host, port, pgContainer.ConnectionString)
+	app := createApp(ctx, host, port, pgContainer.ConnectionString)
 	app.Start()
 
 	url := fmt.Sprintf("http://%s:%d", host, port)
@@ -37,12 +41,80 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		require.Contains(t, string(body), "ms") // Check uptime is returned
 	})
 
+	t.Run("Test /youtube/channel endpoint", func(t *testing.T) {
+		channelPostResp := &api.YoutubeChannel{}
+		respCode, respStatus := executePost(
+			t,
+			url+"/youtube/channel",
+			&api.YoutubeChannel{
+				Name:      "Test Channel",
+				YoutubeID: "TestYoutubeID",
+			},
+			channelPostResp,
+		)
+
+		require.Equal(t, http.StatusCreated, respCode, "Response code: %s", respStatus)
+		require.Equal(t, "Test Channel", channelPostResp.Name)
+		require.Equal(t, "TestYoutubeID", channelPostResp.YoutubeID)
+		require.NotEmpty(t, channelPostResp.CreatedAt.Value)
+		require.Greater(t, channelPostResp.ID.Value, int64(0))
+
+		channelGetResp := api.YoutubeChannel{}
+		respCode, respStatus = executeGet(t, url+"/youtube/channel/"+conv.Int64ToString(channelPostResp.ID.Value), &channelGetResp)
+
+		require.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
+		require.Equal(t, "Test Channel", channelGetResp.Name)
+		require.Equal(t, "TestYoutubeID", channelGetResp.YoutubeID)
+		require.Equal(t, channelPostResp.CreatedAt.Value, channelGetResp.CreatedAt.Value)
+		require.Equal(t, channelPostResp.ID.Value, channelGetResp.ID.Value)
+	})
+
+	t.Run("Test /youtube/channel not found", func(t *testing.T) {
+		channelGetResp := api.YoutubeChannel{}
+		respCode, respStatus := executeGet(t, url+"/youtube/channel/123456", &channelGetResp)
+
+		require.Equal(t, http.StatusNotFound, respCode, "Response code: %s", respStatus)
+	})
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	err := app.Stop(ctx)
 	require.NoError(t, err)
 
 	log.Println("Test suite completed.")
+}
+
+func executeGet(t *testing.T, url string, u json.Unmarshaler) (int, string) {
+	resp, err := http.Get(url)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+	unmarshalBody(t, resp.Body, u)
+
+	return resp.StatusCode, resp.Status
+}
+
+func executePost(t *testing.T, url string, m json.Marshaler, u json.Unmarshaler) (int, string) {
+	jsonData, err := m.MarshalJSON()
+	require.NoError(t, err)
+
+	resp, err := http.Post(url, "application/json", io.NopCloser(bytes.NewReader(jsonData)))
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+	unmarshalBody(t, resp.Body, u)
+
+	return resp.StatusCode, resp.Status
+}
+
+func unmarshalBody(t *testing.T, respBody io.ReadCloser, u json.Unmarshaler) {
+	body, err := io.ReadAll(respBody)
+	require.NoError(t, err)
+
+	if len(body) > 0 {
+		err = u.UnmarshalJSON(body)
+		require.NoError(t, err)
+	}
 }
 
 func createPgContainer(ctx context.Context) *testhelpers.PostgresContainer {
@@ -54,8 +126,8 @@ func createPgContainer(ctx context.Context) *testhelpers.PostgresContainer {
 	return pgContainer
 }
 
-func createApp(host string, port int, dbUrl string) *App {
-	app, err := NewApp(host, port, dbUrl)
+func createApp(ctx context.Context, host string, port int, dbUrl string) *App {
+	app, err := NewApp(ctx, host, port, dbUrl)
 	if err != nil {
 		log.Fatal(err)
 	}

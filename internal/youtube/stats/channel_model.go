@@ -3,8 +3,8 @@ package stats
 import "time"
 
 type YoutubeChannel struct {
-	youtubeChannelId int       `json:"youtubeChannelId" gorm:"primary_key"`
-	externalId       string    `json:"externalId"`
-	name             string    `json:"name"`
-	createdAt        time.Time `json:"createdAt"`
+	YoutubeChannelId int64     `json:"youtubeChannelId" gorm:"primary_key"`
+	ExternalId       string    `json:"externalId"`
+	Name             string    `json:"name"`
+	CreatedAt        time.Time `json:"createdAt"`
 }
