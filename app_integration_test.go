@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ogen-go/ogen/conv"
+	"github.com/stretchr/testify/assert"
 	"io"
 	"log"
 	"net/http"
@@ -37,8 +38,8 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		defer resp.Body.Close()
 
 		body, _ := io.ReadAll(resp.Body)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-		require.Contains(t, string(body), "ms") // Check uptime is returned
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Contains(t, string(body), "ms") // Check uptime is returned
 	})
 
 	t.Run("Test /youtube/channel endpoint", func(t *testing.T) {
@@ -53,27 +54,27 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 			channelPostResp,
 		)
 
-		require.Equal(t, http.StatusCreated, respCode, "Response code: %s", respStatus)
-		require.Equal(t, "Test Channel", channelPostResp.Name)
-		require.Equal(t, "TestYoutubeID", channelPostResp.YoutubeID)
-		require.NotEmpty(t, channelPostResp.CreatedAt.Value)
-		require.Greater(t, channelPostResp.ID.Value, int64(0))
+		assert.Equal(t, http.StatusCreated, respCode, "Response code: %s", respStatus)
+		assert.Equal(t, "Test Channel", channelPostResp.Name)
+		assert.Equal(t, "TestYoutubeID", channelPostResp.YoutubeID)
+		assert.NotEmpty(t, channelPostResp.CreatedAt.Value)
+		assert.Greater(t, channelPostResp.ID.Value, int64(0))
 
 		channelGetResp := api.YoutubeChannel{}
 		respCode, respStatus = executeGet(t, url+"/youtube/channel/"+conv.Int64ToString(channelPostResp.ID.Value), &channelGetResp)
 
-		require.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
-		require.Equal(t, "Test Channel", channelGetResp.Name)
-		require.Equal(t, "TestYoutubeID", channelGetResp.YoutubeID)
-		require.Equal(t, channelPostResp.CreatedAt.Value, channelGetResp.CreatedAt.Value)
-		require.Equal(t, channelPostResp.ID.Value, channelGetResp.ID.Value)
+		assert.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
+		assert.Equal(t, "Test Channel", channelGetResp.Name)
+		assert.Equal(t, "TestYoutubeID", channelGetResp.YoutubeID)
+		assert.Equal(t, channelPostResp.CreatedAt.Value, channelGetResp.CreatedAt.Value)
+		assert.Equal(t, channelPostResp.ID.Value, channelGetResp.ID.Value)
 	})
 
 	t.Run("Test /youtube/channel not found", func(t *testing.T) {
 		channelGetResp := api.YoutubeChannel{}
 		respCode, respStatus := executeGet(t, url+"/youtube/channel/123456", &channelGetResp)
 
-		require.Equal(t, http.StatusNotFound, respCode, "Response code: %s", respStatus)
+		assert.Equal(t, http.StatusNotFound, respCode, "Response code: %s", respStatus)
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
