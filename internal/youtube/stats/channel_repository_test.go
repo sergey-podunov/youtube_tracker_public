@@ -18,7 +18,7 @@ import (
 type ChannelRepoTestSuite struct {
 	suite.Suite
 	pgContainer *testhelpers.PostgresContainer
-	repository  *ChannelRepository
+	repository  *YoutubeChannelRepository
 	ctx         context.Context
 }
 

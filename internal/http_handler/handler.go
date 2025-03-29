@@ -12,10 +12,10 @@ import (
 
 type MainHttpHandler struct {
 	api.UnimplementedHandler
-	channelRepository *stats.ChannelRepository
+	channelRepository *stats.YoutubeChannelRepository
 }
 
-func NewHttpHandler(channelRepository *stats.ChannelRepository) *MainHttpHandler {
+func NewHttpHandler(channelRepository *stats.YoutubeChannelRepository) *MainHttpHandler {
 	return &MainHttpHandler{
 		channelRepository: channelRepository,
 	}

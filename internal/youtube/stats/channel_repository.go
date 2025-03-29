@@ -10,22 +10,28 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type ChannelRepository struct {
+type ChannelRepository interface {
+	CreateChannel(ctx context.Context, channel YoutubeChannel) (*YoutubeChannel, error)
+	GetChannel(ctx context.Context, channelId int64) (*YoutubeChannel, error)
+	StoreSubscriptionsCount(ctx context.Context, stats YoutubeChannelStats) (*YoutubeChannelStats, error)
+}
+
+type YoutubeChannelRepository struct {
 	conn *pgx.Conn
 }
 
-func NewChannelRepository(ctx context.Context, connStr string) (*ChannelRepository, error) {
+func NewChannelRepository(ctx context.Context, connStr string) (*YoutubeChannelRepository, error) {
 	conn, err := pgx.Connect(ctx, connStr)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		return nil, err
 	}
-	return &ChannelRepository{
+	return &YoutubeChannelRepository{
 		conn: conn,
 	}, nil
 }
 
-func (r *ChannelRepository) CreateChannel(ctx context.Context, channel YoutubeChannel) (*YoutubeChannel, error) {
+func (r *YoutubeChannelRepository) CreateChannel(ctx context.Context, channel YoutubeChannel) (*YoutubeChannel, error) {
 	query := `
 		INSERT INTO youtube_channel (
 			channel_name, 
@@ -53,7 +59,7 @@ func (r *ChannelRepository) CreateChannel(ctx context.Context, channel YoutubeCh
 	return &channel, nil
 }
 
-func (r *ChannelRepository) GetChannel(ctx context.Context, channelId int64) (*YoutubeChannel, error) {
+func (r *YoutubeChannelRepository) GetChannel(ctx context.Context, channelId int64) (*YoutubeChannel, error) {
 	query := `
 		SELECT 
 			youtube_channel_id, 
@@ -75,7 +81,7 @@ func (r *ChannelRepository) GetChannel(ctx context.Context, channelId int64) (*Y
 	return &channel, nil
 }
 
-func (r *ChannelRepository) StoreSubscriptionsCount(ctx context.Context, stats YoutubeChannelStats) (*YoutubeChannelStats, error) {
+func (r *YoutubeChannelRepository) StoreSubscriptionsCount(ctx context.Context, stats YoutubeChannelStats) (*YoutubeChannelStats, error) {
 	query := `
 		INSERT INTO youtube_channel_stat (
 			youtube_channel_id, 
