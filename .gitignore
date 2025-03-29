@@ -5,7 +5,9 @@
 pkg
 go.sum
 /config.json
-/k8s/postgres-secrets.yml
+/k8s/000-postgres-secrets.yml
 api
 youtube_tracker.exe
 /cmd/
+.DS_Store
+/youtube_tracker

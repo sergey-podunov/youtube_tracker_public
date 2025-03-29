@@ -1,3 +1,4 @@
+.PHONY: k8s
 BINARY_NAME=ytracker
 
 generate:
@@ -33,3 +34,6 @@ vet:
 
 lint:
 	golangci-lint run --enable-all
+
+k8s:
+	./apply-k8s.sh
