@@ -22,7 +22,10 @@ func CreatePostgresContainer(ctx context.Context) (*PostgresContainer, error) {
 
 	pgContainer, err := postgres.RunContainer(ctx,
 		testcontainers.WithImage("postgres:15.3-alpine"),
-		postgres.WithInitScripts(filepath.Join(srcRoot, "..", "testdata", "init-db.sql")),
+		postgres.WithInitScripts(
+			filepath.Join(srcRoot, "..", "database", "schema.sql"),
+			filepath.Join(srcRoot, "..", "testdata", "init-db.sql"),
+		),
 		postgres.WithDatabase("test-db"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),

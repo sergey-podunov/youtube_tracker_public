@@ -35,5 +35,8 @@ vet:
 lint:
 	golangci-lint run --enable-all
 
-k8s:
+atlas-schema:
+	go run -tags=atlas_schema AtlasSchemaGenerator.go
+
+k8s: atlas-schema
 	./apply-k8s.sh

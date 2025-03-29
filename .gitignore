@@ -11,3 +11,4 @@ youtube_tracker.exe
 /cmd/
 .DS_Store
 /youtube_tracker
+/database/atlas-schema.yaml
