@@ -34,8 +34,8 @@ type MockYoutubeClient struct {
 	mock.Mock
 }
 
-func (m *MockYoutubeClient) GetChannelData(ctx context.Context, channelId string) (*ChannelData, error) {
-	args := m.Called(ctx, channelId)
+func (m *MockYoutubeClient) GetChannelData(channelId string) (*ChannelData, error) {
+	args := m.Called(channelId)
 	return args.Get(0).(*ChannelData), args.Error(1)
 }
 
@@ -67,7 +67,7 @@ func (suite *YoutubeChannelWorkerTestSuite) TestGetChannel() {
 		CreatedAt:        time.Time{},
 	}, nil)
 
-	suite.mockClient.On("GetChannelData", ctx, "3263yw").Return(&ChannelData{
+	suite.mockClient.On("GetChannelData", "3263yw").Return(&ChannelData{
 		ChannelID:        "3263yw",
 		SubscribersCount: 63362,
 	}, nil)

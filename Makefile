@@ -5,9 +5,9 @@ generate:
 	go generate
 
 build: generate test
-	GOARCH=amd64 GOOS=darwin go build -o cmd/${BINARY_NAME}-darwin main.go
-	GOARCH=amd64 GOOS=linux go build -o cmd/${BINARY_NAME}-linux main.go
-	GOARCH=amd64 GOOS=windows go build -o cmd/${BINARY_NAME}-windows main.go
+	GOARCH=amd64 GOOS=darwin go build -o bin/${BINARY_NAME}-darwin ./cmd/app/main.go
+	GOARCH=amd64 GOOS=linux go build -o bin/${BINARY_NAME}-linux ./cmd/app/main.go
+	GOARCH=amd64 GOOS=windows go build -o bin/${BINARY_NAME}-windows ./cmd/app/main.go
 
 run:
 	go run main.go
@@ -18,10 +18,10 @@ clean:
 	rm -f internal/api/*
 
 test:
-	go test -tags=database ./...
+	go test -v -tags=database ./...
 
 integration_test:
-	go test -tags=integration ./...
+	go test -v -tags=integration ./...
 
 test_coverage:
 	go test ./... -coverprofile=coverage.out

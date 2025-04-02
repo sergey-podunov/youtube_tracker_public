@@ -17,7 +17,7 @@ func (w *YoutubeChannelWorker) GetChannelStats(channelID int64) error {
 		return err
 	}
 
-	channelData, err := w.client.GetChannelData(ctx, channel.ExternalId)
+	channelData, err := w.client.GetChannelData(channel.ExternalId)
 	if err != nil {
 		return err
 	}

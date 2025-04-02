@@ -1,6 +1,6 @@
-/cmd/
+/bin/
 /client_secret.json
-/auth-cache.json
+auth-cache.json
 .idea
 pkg
 go.sum
@@ -8,7 +8,6 @@ go.sum
 /k8s/000-postgres-secrets.yml
 api
 youtube_tracker.exe
-/cmd/
 .DS_Store
 /youtube_tracker
 /database/atlas-schema.yaml

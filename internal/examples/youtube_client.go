@@ -137,28 +137,16 @@ func channelsListByUsername(service *youtube.Service, part string, forUsername s
 }
 
 func printStat() {
-	/*resp, err := http_handler.Get("http://example.com/")
-	if err != nil {
-		log.Fatalf("got error while request %v", err)
-	}
-
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalf("got error while reading body %v", err)
-	}
-
-	fmt.Println(string(body))*/
 	ctx := context.Background()
 
-	b, err := ioutil.ReadFile("client_secret.json")
+	secretsConf, err := ioutil.ReadFile("client_secret.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
 
 	// If modifying these scopes, delete your previously saved credentials
 	// at ~/.credentials/youtube-go-quickstart.json
-	config, err := google.ConfigFromJSON(b, youtube.YoutubeReadonlyScope)
+	config, err := google.ConfigFromJSON(secretsConf, youtube.YoutubeReadonlyScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}

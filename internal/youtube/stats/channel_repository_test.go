@@ -9,7 +9,7 @@ import (
 	"log"
 	"testing"
 	"time"
-	"youtube_tracker/internal/testhelpers"
+	"youtube_tracker/internal/helpers"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -17,14 +17,14 @@ import (
 
 type ChannelRepoTestSuite struct {
 	suite.Suite
-	pgContainer *testhelpers.PostgresContainer
+	pgContainer *helpers.PostgresContainer
 	repository  *YoutubeChannelRepository
 	ctx         context.Context
 }
 
 func (suite *ChannelRepoTestSuite) SetupSuite() {
 	suite.ctx = context.Background()
-	pgContainer, err := testhelpers.CreatePostgresContainer(suite.ctx)
+	pgContainer, err := helpers.CreatePostgresContainer(suite.ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

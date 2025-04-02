@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 	"youtube_tracker/internal/api"
-	"youtube_tracker/internal/testhelpers"
+	"youtube_tracker/internal/helpers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -118,8 +118,8 @@ func unmarshalBody(t *testing.T, respBody io.ReadCloser, u json.Unmarshaler) {
 	}
 }
 
-func createPgContainer(ctx context.Context) *testhelpers.PostgresContainer {
-	pgContainer, err := testhelpers.CreatePostgresContainer(ctx)
+func createPgContainer(ctx context.Context) *helpers.PostgresContainer {
+	pgContainer, err := helpers.CreatePostgresContainer(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
