@@ -61,14 +61,11 @@ func getAuthCode(urlStr string) (string, error) {
 
 func saveToken(file string, token *oauth2.Token) error {
 	fmt.Printf("Saving credential file to: %s\n", file)
-	f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	data, err := json.MarshalIndent(token, "", "  ")
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	json.NewEncoder(f).Encode(token)
-
-	return nil
+	return os.WriteFile(file, data, 0600)
 }
 
 func AuthInit() {

@@ -28,7 +28,7 @@ func TestYoutubeClient(t *testing.T) {
 		channelId, err := client.GetChannelId(youtube_channel_name)
 		require.NoError(t, err)
 		require.Equal(t, youtube_channel_id, channelId)
-		log.Printf("Channel Id: %s", channelId)
+		log.Printf("Channel ID: %s", channelId)
 	})
 
 	t.Run("Test GetChannelData", func(t *testing.T) {

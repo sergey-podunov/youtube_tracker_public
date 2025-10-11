@@ -1,5 +1,6 @@
-.PHONY: k8s
+.PHONY: k8s docker-build
 BINARY_NAME=ytracker
+DOCKER_IMAGE_NAME=youtube-tracker
 
 generate:
 	go generate
@@ -18,10 +19,10 @@ clean:
 	rm -f internal/api/*
 
 test:
-	go test -v -tags=database ./...
+	go test -v ./...
 
 integration_test:
-	go test -v -tags=integration ./...
+	go test -v -tags=integration,database ./...
 
 test_coverage:
 	go test ./... -coverprofile=coverage.out
@@ -34,6 +35,9 @@ vet:
 
 lint:
 	golangci-lint run --enable-all
+
+docker-build: test vet
+	docker build -t ${DOCKER_IMAGE_NAME} .
 
 atlas-schema:
 	go run -tags=atlas_schema AtlasSchemaGenerator.go

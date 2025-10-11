@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 	"youtube_tracker/internal/api"
@@ -56,15 +57,31 @@ func (app *App) Stop(ctx context.Context) error {
 	return app.httpServer.Shutdown(ctx)
 }
 
+// getEnv reads an environment variable or returns a default value.
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
 func main() {
 	ctx := context.Background()
 
-	//todo read params from a config file
+	host := getEnv("APP_HOST", "")
+	portStr := getEnv("APP_PORT", "8080")
+	dbUrl := getEnv("DB_URL", "")
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Fatalf("Invalid port specified: %v", err)
+	}
+
 	app, err := NewApp(
 		ctx,
-		"localhost",
-		8080,
-		"postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable",
+		host,
+		port,
+		dbUrl,
 	)
 
 	if err != nil {
@@ -73,5 +90,6 @@ func main() {
 
 	app.Start()
 
+	// Wait indefinitely
 	<-make(chan struct{})
 }

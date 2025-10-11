@@ -1,7 +1,7 @@
 package customer
 
 type Customer struct {
-	Id    int
+	ID    int
 	Name  string
 	Email string
 }
