@@ -1,10 +1,11 @@
-package youtube
+package youtube_test
 
 import (
 	"context"
 	"fmt"
 	"testing"
 	"time"
+	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
 
 	"github.com/stretchr/testify/mock"
@@ -13,20 +14,15 @@ import (
 
 type StatisticsWorkerTestSuite struct {
 	suite.Suite
-	worker         *StatisticsWorker
+	worker         *youtube.StatisticsWorker
 	mockRepository *MockChannelRepository
 	mockClient     *MockYoutubeClient
 }
 
 func (suite *StatisticsWorkerTestSuite) SetupTest() {
-
 	suite.mockRepository = new(MockChannelRepository)
 	suite.mockClient = new(MockYoutubeClient)
-
-	suite.worker = &StatisticsWorker{
-		channelRep: suite.mockRepository,
-		client:     suite.mockClient,
-	}
+	suite.worker = youtube.NewStatisticsWorker(suite.mockRepository, suite.mockClient)
 }
 
 func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
@@ -39,7 +35,7 @@ func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
 		CreatedAt:        time.Time{},
 	}, nil)
 
-	suite.mockClient.On("GetChannelData", "3263yw").Return(&ChannelData{
+	suite.mockClient.On("GetChannelData", "3263yw").Return(&youtube.ChannelData{
 		ChannelID:        "3263yw",
 		SubscribersCount: 63362,
 	}, nil)

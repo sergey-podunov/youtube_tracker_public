@@ -19,8 +19,8 @@ type App struct {
 	httpServer *http.Server
 }
 
-func NewApp(ctx context.Context, host string, port int, dbUrl string, ytClient youtube.Client) (*App, error) {
-	channelRepository, err := stats.NewChannelRepository(ctx, dbUrl)
+func NewApp(ctx context.Context, host string, port int, dbURL string, ytClient youtube.Client) (*App, error) {
+	channelRepository, err := stats.NewChannelRepository(ctx, dbURL)
 	if err != nil {
 		return nil, err
 	}
@@ -33,12 +33,15 @@ func NewApp(ctx context.Context, host string, port int, dbUrl string, ytClient y
 		if err != nil {
 			return nil, err
 		}
+
 		client = httpCli
 	}
+
 	worker := youtube.NewStatisticsWorker(channelRepository, client)
 	collector := youtube.NewStatisticsCollector(channelRepository, worker, 10)
 
-	httpHandler := mainHanler.NewHttpHandler(collector, channelRepository)
+	httpHandler := mainHanler.NewHTTPHandler(collector, channelRepository)
+
 	srv, err := api.NewServer(httpHandler)
 	if err != nil {
 		return nil, err
@@ -52,7 +55,7 @@ func NewApp(ctx context.Context, host string, port int, dbUrl string, ytClient y
 	}
 
 	return &App{
-		dbUrl:      dbUrl,
+		dbUrl:      dbURL,
 		httpServer: httpServer,
 	}, nil
 }
@@ -76,6 +79,7 @@ func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
+
 	return fallback
 }
 

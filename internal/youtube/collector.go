@@ -67,8 +67,8 @@ func (s *WorkerCollector) CollectStatistics(ctx context.Context) int64 {
 	s.jobs[jobID] = job
 	s.mu.Unlock()
 
-	ctx = context.Background()
-	go s.runJob(ctx, job)
+	ctxBackground := context.Background()
+	go s.runJob(ctxBackground, job)
 
 	return jobID
 }
@@ -78,6 +78,7 @@ func (s *WorkerCollector) runJob(ctx context.Context, job *Job) {
 	if err != nil {
 		log.Printf("Error getting channels for job %d: %v", job.ID, err)
 		job.Status = StatusError
+
 		return
 	}
 
@@ -94,18 +95,22 @@ func (s *WorkerCollector) runJob(ctx context.Context, job *Job) {
 	}
 
 	var wg sync.WaitGroup
+
 	jobsChan := make(chan int64, len(channelIDs))
 
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
+
 			for channelID := range jobsChan {
 				err := s.worker.GetChannelStats(channelID)
 
 				s.mu.Lock()
 				if err != nil {
 					log.Printf("Error processing channel %d for job %d: %v", channelID, job.ID, err)
+
 					job.Error++
 				} else {
 					job.Ready++
@@ -118,9 +123,11 @@ func (s *WorkerCollector) runJob(ctx context.Context, job *Job) {
 	for _, channelID := range channelIDs {
 		jobsChan <- channelID
 	}
+
 	close(jobsChan)
 
 	wg.Wait()
+
 	job.Status = StatusComplete
 }
 
@@ -132,5 +139,6 @@ func (s *WorkerCollector) GetJobStatus(jobID int64) (*Job, error) {
 	if !ok {
 		return nil, fmt.Errorf("job with id %d not found", jobID)
 	}
+
 	return job, nil
 }

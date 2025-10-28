@@ -1,10 +1,11 @@
-package youtube
+package youtube_test
 
 import (
 	"context"
 	"fmt"
 	"testing"
 	"time"
+	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ import (
 
 type StatisticsCollectorTestSuite struct {
 	suite.Suite
-	collector      StatisticsCollector
+	collector      youtube.StatisticsCollector
 	mockWorker     *MockStatisticsWorker
 	mockRepository *MockChannelRepository
 }
@@ -22,7 +23,7 @@ type StatisticsCollectorTestSuite struct {
 func (suite *StatisticsCollectorTestSuite) SetupTest() {
 	suite.mockRepository = new(MockChannelRepository)
 	suite.mockWorker = new(MockStatisticsWorker)
-	suite.collector = NewStatisticsCollector(suite.mockRepository, suite.mockWorker, 5)
+	suite.collector = youtube.NewStatisticsCollector(suite.mockRepository, suite.mockWorker, 5)
 }
 
 func (suite *StatisticsCollectorTestSuite) TestStatisticsCollector() {
@@ -46,16 +47,19 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollector() {
 	jobID := suite.collector.CollectStatistics(ctx)
 	assert.Equal(t, int64(1), jobID)
 
-	var actualJob *Job
+	var actualJob *youtube.Job
+
 	assert.Eventually(t, func() bool {
 		job, err := suite.collector.GetJobStatus(jobID)
 		if err != nil {
 			return false
 		}
+
 		actualJob = job
-		return job.Status == StatusComplete || job.Status == StatusError
+
+		return job.Status == youtube.StatusComplete || job.Status == youtube.StatusError
 	}, 5*time.Second, 10*time.Millisecond)
-	assert.Equal(t, StatusComplete, actualJob.Status)
+	assert.Equal(t, youtube.StatusComplete, actualJob.Status)
 	assert.Equal(t, int32(1), actualJob.Total)
 	assert.Equal(t, int32(1), actualJob.Ready)
 	assert.Equal(t, int32(0), actualJob.Error)
@@ -82,16 +86,19 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollectorWorkerError() 
 	jobID := suite.collector.CollectStatistics(ctx)
 	assert.Equal(t, int64(1), jobID)
 
-	var actualJob *Job
+	var actualJob *youtube.Job
+
 	assert.Eventually(t, func() bool {
 		job, err := suite.collector.GetJobStatus(jobID)
 		if err != nil {
 			return false
 		}
+
 		actualJob = job
-		return job.Status == StatusComplete || job.Status == StatusError
+
+		return job.Status == youtube.StatusComplete || job.Status == youtube.StatusError
 	}, 5*time.Second, 10*time.Millisecond)
-	assert.Equal(t, StatusComplete, actualJob.Status)
+	assert.Equal(t, youtube.StatusComplete, actualJob.Status)
 	assert.Equal(t, int32(1), actualJob.Total)
 	assert.Equal(t, int32(0), actualJob.Ready)
 	assert.Equal(t, int32(1), actualJob.Error)
@@ -109,16 +116,19 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollectorRunJobError() 
 	jobID := suite.collector.CollectStatistics(ctx)
 	assert.Equal(t, int64(1), jobID)
 
-	var actualJob *Job
+	var actualJob *youtube.Job
+
 	assert.Eventually(t, func() bool {
 		job, err := suite.collector.GetJobStatus(jobID)
 		if err != nil {
 			return false
 		}
+
 		actualJob = job
-		return job.Status == StatusComplete || job.Status == StatusError
+
+		return job.Status == youtube.StatusComplete || job.Status == youtube.StatusError
 	}, 5*time.Second, 10*time.Millisecond)
-	assert.Equal(t, StatusError, actualJob.Status)
+	assert.Equal(t, youtube.StatusError, actualJob.Status)
 	assert.Equal(t, int32(0), actualJob.Total)
 	assert.Equal(t, int32(0), actualJob.Ready)
 	assert.Equal(t, int32(0), actualJob.Error)

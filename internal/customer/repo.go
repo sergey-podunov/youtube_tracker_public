@@ -18,6 +18,7 @@ func NewRepository(ctx context.Context, connStr string) (*Repository, error) {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		return nil, err
 	}
+
 	return &Repository{
 		conn: conn,
 	}, nil
@@ -25,17 +26,19 @@ func NewRepository(ctx context.Context, connStr string) (*Repository, error) {
 
 func (r Repository) CreateCustomer(ctx context.Context, customer Customer) (Customer, error) {
 	err := r.conn.QueryRow(ctx,
-		"INSERT INTO customers (name, email) VALUES ($1, $2) RETURNING id",
-		customer.Name, customer.Email).Scan(&customer.ID)
+		"INSERT INTO customers (name, email) VALUES ($1, $2) RETURNING id", customer.Name, customer.Email).Scan(&customer.ID)
 	return customer, err
 }
 
 func (r Repository) GetCustomerByEmail(ctx context.Context, email string) (Customer, error) {
-	var customer Customer
 	query := "SELECT id, name, email FROM customers WHERE email = $1"
+
+	var customer Customer
+
 	err := r.conn.QueryRow(ctx, query, email).Scan(&customer.ID, &customer.Name, &customer.Email)
 	if err != nil {
 		return Customer{}, err
 	}
+
 	return customer, nil
 }

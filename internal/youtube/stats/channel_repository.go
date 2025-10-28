@@ -30,7 +30,7 @@ func NewChannelRepository(ctx context.Context, connStr string) (*YoutubeChannelR
 	}
 
 	if err = conn.Ping(ctx); err != nil {
-		conn.Close(ctx)
+		_ = conn.Close(ctx)
 		return nil, err
 	}
 
@@ -52,18 +52,19 @@ func (r *YoutubeChannelRepository) CreateChannel(ctx context.Context, channel Yo
 		) 
 		RETURNING youtube_channel_id
 	`
+
 	if channel.CreatedAt.IsZero() {
 		channel.CreatedAt = time.Now().UTC().Truncate(time.Millisecond)
 	}
 
 	var insertedID int64
-	err := r.querier.QueryRow(ctx, query, channel.Name, channel.ExternalId, channel.CreatedAt).Scan(&insertedID)
-	if err != nil {
+	if err := r.querier.QueryRow(ctx, query, channel.Name, channel.ExternalId, channel.CreatedAt).Scan(&insertedID); err != nil {
 		log.Printf("Failed to insert channel: %v\n", err)
 		return nil, err
 	}
 
 	channel.YoutubeChannelId = insertedID
+
 	return &channel, nil
 }
 
@@ -79,10 +80,10 @@ func (r *YoutubeChannelRepository) GetChannel(ctx context.Context, channelId int
 		WHERE 
 			youtube_channel_id = $1
 	`
+
 	var channel YoutubeChannel
-	err := r.querier.QueryRow(ctx, query, channelId).
-		Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalId, &channel.CreatedAt)
-	if err != nil {
+	if err := r.querier.QueryRow(ctx, query, channelId).
+		Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalId, &channel.CreatedAt); err != nil {
 		return nil, err
 	}
 
@@ -108,13 +109,13 @@ func (r *YoutubeChannelRepository) StoreSubscriptionsCount(ctx context.Context, 
 	}
 
 	var insertedID int64
-	err := r.querier.QueryRow(ctx, query, stats.YoutubeChannelId, stats.SubscribersCount, stats.CreatedAt).Scan(&insertedID)
-	if err != nil {
+	if err := r.querier.QueryRow(ctx, query, stats.YoutubeChannelId, stats.SubscribersCount, stats.CreatedAt).Scan(&insertedID); err != nil {
 		log.Printf("Failed to insert channel: %v\n", err)
 		return nil, err
 	}
 
 	stats.YoutubeChannelStatId = insertedID
+
 	return &stats, nil
 }
 
@@ -131,18 +132,21 @@ func (r *YoutubeChannelRepository) GetChannels(ctx context.Context, checkedBefor
 		WHERE (checked_at <= $1 or checked_at is null)
 		limit $2`
 	rows, err := r.querier.Query(ctx, query, checkedBefore, count)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	var channels []YoutubeChannel
+
 	for rows.Next() {
 		var channel YoutubeChannel
-		err := rows.Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalId, &channel.CreatedAt, &channel.CheckedAt)
-		if err != nil {
+		if err := rows.Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalId, &channel.CreatedAt, &channel.CheckedAt); err != nil {
 			return nil, err
 		}
+
 		channels = append(channels, channel)
 	}
 

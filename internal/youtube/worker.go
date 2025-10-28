@@ -23,6 +23,7 @@ func NewStatisticsWorker(channelRep stats.ChannelRepository, client Client) *Sta
 
 func (w *StatisticsWorker) GetChannelStats(channelID int64) error {
 	ctx := context.Background()
+
 	channel, err := w.channelRep.GetChannel(ctx, channelID)
 	if err != nil {
 		return err

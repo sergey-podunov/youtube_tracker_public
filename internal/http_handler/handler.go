@@ -11,30 +11,31 @@ import (
 	"youtube_tracker/internal/youtube/stats"
 )
 
-type MainHttpHandler struct {
+type MainHTTPHandler struct {
 	api.UnimplementedHandler
 	collector         *youtube.WorkerCollector
 	channelRepository *stats.YoutubeChannelRepository
 }
 
-func NewHttpHandler(collector *youtube.WorkerCollector, channelRepository *stats.YoutubeChannelRepository) *MainHttpHandler {
-	return &MainHttpHandler{
+func NewHTTPHandler(collector *youtube.WorkerCollector, channelRepository *stats.YoutubeChannelRepository) *MainHTTPHandler {
+	return &MainHTTPHandler{
 		collector:         collector,
 		channelRepository: channelRepository,
 	}
 }
 
-func (handler *MainHttpHandler) StatisticsGeneratePost(ctx context.Context) (*api.StatGenerationStarted, error) {
+func (handler *MainHTTPHandler) StatisticsGeneratePost(ctx context.Context) (*api.StatGenerationStarted, error) {
 	return &api.StatGenerationStarted{
 		StatusPath: "/status",
 	}, nil
 }
 
-func (handler *MainHttpHandler) YoutubeChannelPost(ctx context.Context, req *api.YoutubeChannel) (*api.YoutubeChannel, error) {
+func (handler *MainHTTPHandler) YoutubeChannelPost(ctx context.Context, req *api.YoutubeChannel) (*api.YoutubeChannel, error) {
 	channel := stats.YoutubeChannel{
 		ExternalId: req.YoutubeID,
 		Name:       req.Name,
 	}
+
 	createdChannel, err := handler.channelRepository.CreateChannel(ctx, channel)
 	if err != nil {
 		return nil, err
@@ -48,7 +49,7 @@ func (handler *MainHttpHandler) YoutubeChannelPost(ctx context.Context, req *api
 	}, nil
 }
 
-func (handler *MainHttpHandler) YoutubeChannelIDGet(ctx context.Context, params api.YoutubeChannelIDGetParams) (api.YoutubeChannelIDGetRes, error) {
+func (handler *MainHTTPHandler) YoutubeChannelIDGet(ctx context.Context, params api.YoutubeChannelIDGetParams) (api.YoutubeChannelIDGetRes, error) {
 	channel, err := handler.channelRepository.GetChannel(ctx, params.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -68,21 +69,23 @@ func (handler *MainHttpHandler) YoutubeChannelIDGet(ctx context.Context, params 
 
 var startTime = time.Now()
 
-func (handler *MainHttpHandler) StatusGet(ctx context.Context) (*api.Status, error) {
+func (handler *MainHTTPHandler) StatusGet(ctx context.Context) (*api.Status, error) {
 	uptime := time.Since(startTime)
+
 	return &api.Status{
 		Uptime: api.NewOptString(fmt.Sprintf("%d ms", uptime.Milliseconds())),
 	}, nil
 }
 
-func (handler *MainHttpHandler) SchedulePost(ctx context.Context) (*api.StatGenerationStarted, error) {
-	jobId := handler.collector.CollectStatistics(ctx)
+func (handler *MainHTTPHandler) SchedulePost(ctx context.Context) (*api.StatGenerationStarted, error) {
+	jobID := handler.collector.CollectStatistics(ctx)
+
 	return &api.StatGenerationStarted{
-		StatusPath: fmt.Sprintf("/schedule/job/%d", jobId),
+		StatusPath: fmt.Sprintf("/schedule/job/%d", jobID),
 	}, nil
 }
 
-func (handler *MainHttpHandler) ScheduleJobIDGet(ctx context.Context, params api.ScheduleJobIDGetParams) (api.ScheduleJobIDGetRes, error) {
+func (handler *MainHTTPHandler) ScheduleJobIDGet(ctx context.Context, params api.ScheduleJobIDGetParams) (api.ScheduleJobIDGetRes, error) {
 	job, err := handler.collector.GetJobStatus(params.ID)
 	if err != nil {
 		return nil, err

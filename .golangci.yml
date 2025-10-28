@@ -1,0 +1,13 @@
+# .golangci.yml
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - usetesting
+  disable:
+    - tenv
+#    - testpackage
+
+issues:
+  exclude-use-default: false

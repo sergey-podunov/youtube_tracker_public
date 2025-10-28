@@ -1,3 +1,4 @@
+//nolint:testpackage //because of using direct queuer replacement for db tests isolation
 package stats
 
 import (
@@ -22,23 +23,27 @@ type BaseChannelRepoTestSuite struct {
 func (suite *BaseChannelRepoTestSuite) SetupSuite() {
 	suite.ctx = context.Background()
 	t := suite.T()
+
 	pgContainer, err := helpers.CreatePostgresContainer(suite.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	suite.pgContainer = pgContainer
 
 	conn, err := connectWithTrace(suite.ctx, suite.pgContainer.ConnectionString)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	suite.conn = conn
 }
 
 func (suite *BaseChannelRepoTestSuite) TearDownSuite() {
 	if suite.conn != nil {
-		suite.conn.Close(suite.ctx)
+		_ = suite.conn.Close(suite.ctx)
 	}
+
 	if err := suite.pgContainer.Terminate(suite.ctx); err != nil {
 		log.Fatalf("error terminating postgres container: %s", err)
 	}
@@ -46,10 +51,12 @@ func (suite *BaseChannelRepoTestSuite) TearDownSuite() {
 
 func (suite *BaseChannelRepoTestSuite) SetupTest() {
 	t := suite.T()
+
 	tx, err := suite.conn.Begin(suite.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	suite.tx = tx
 
 	// Reset repository with transaction for each test
@@ -66,6 +73,7 @@ func (suite *BaseChannelRepoTestSuite) TearDownTest() {
 	}
 }
 
+//nolint:unused
 func insertChannels(ctx context.Context, tx pgx.Tx, expectedChannels []YoutubeChannel) error {
 	query := `
 			INSERT INTO youtube_channel (
@@ -86,6 +94,7 @@ func insertChannels(ctx context.Context, tx pgx.Tx, expectedChannels []YoutubeCh
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -100,9 +109,11 @@ func connectWithTrace(ctx context.Context, connStr string) (*pgx.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	cfg.Tracer = &tracelog.TraceLog{
 		Logger:   stdLogger{},
 		LogLevel: tracelog.LogLevelTrace,
 	}
+
 	return pgx.ConnectConfig(ctx, cfg)
 }

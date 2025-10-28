@@ -1,16 +1,18 @@
 package youtube
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/youtube/v3"
 	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"youtube_tracker/internal/helpers"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/youtube/v3"
 )
 
 func getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
@@ -28,7 +30,7 @@ func getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 		return nil, fmt.Errorf("Unable to get auth code %v", err)
 	}
 
-	token, err := config.Exchange(oauth2.NoContext, code)
+	token, err := config.Exchange(context.TODO(), code)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to retrieve token from web %v", err)
 	}
@@ -46,6 +48,7 @@ func getAuthCode(urlStr string) (string, error) {
 		log.Fatal(err)
 		return "", err
 	}
+
 	codeValues, ok := parsedURL.Query()["code"]
 	if !ok {
 		return "", fmt.Errorf("no code param: %s", urlStr)
@@ -61,10 +64,12 @@ func getAuthCode(urlStr string) (string, error) {
 
 func saveToken(file string, token *oauth2.Token) error {
 	fmt.Printf("Saving credential file to: %s\n", file)
+
 	data, err := json.MarshalIndent(token, "", "  ")
 	if err != nil {
 		return err
 	}
+
 	return os.WriteFile(file, data, 0600)
 }
 
@@ -73,6 +78,7 @@ func AuthInit() {
 	if err != nil {
 		log.Fatalf("failed to get absolute path to the root: %v", err)
 	}
+
 	clientSecretFilePath := filepath.Join(rootPath, "client_secret.json")
 
 	secretsConf, err := os.ReadFile(clientSecretFilePath)

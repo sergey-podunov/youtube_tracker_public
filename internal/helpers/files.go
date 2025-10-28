@@ -20,6 +20,7 @@ func FindProjectRoot() (string, error) {
 		if parentDir == currentDir {
 			break
 		}
+
 		currentDir = parentDir
 	}
 
