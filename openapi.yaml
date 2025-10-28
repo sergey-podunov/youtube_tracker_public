@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
-  title: Book API
-  description: API for retrieving information about books
+  title: Youtube tracker API
+  description: API for retrieving information about Youtube channels
   version: 1.0.0
 servers:
   - url: http://localhost:8080
@@ -57,16 +57,37 @@ paths:
         '404':
           description: Not found
           content: {}
-  /statistics/generate:
+  /schedule:
     post:
       description: Initiate statistics generation
       responses:
-        202:
+        200:
           description: Task started
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StatGenerationStarted'
+  /schedule/job/{id}:
+    get:
+      description: Get job status
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: ID of the job
+      responses:
+        200:
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          description: Not found
+          content: { }
 components:
   schemas:
     Status:
@@ -103,4 +124,35 @@ components:
         statusPath:
           type: string
           description: path for requests about status of the generation task
-          example: /statistics/job/1
+          example: /schedule/job/1
+    JobStatus:
+      description: Job status
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        total:
+          type: integer
+          format: int32
+          description: total amount of channels in job
+        ready:
+          type: integer
+          format: int32
+          description: amount of handled channels in job
+        error:
+          type: integer
+          format: int32
+          description: amount of channels handled with error
+        status:
+          type: string
+          enum:
+            - NEW
+            - RUNNING
+            - ERROR
+            - COMPLETE
+          

@@ -22,7 +22,10 @@ test:
 	go test -v ./...
 
 integration_test:
-	go test -v -tags=integration,database ./...
+	go test -v -tags=integration./...
+
+database_test:
+	go test -v -tags=database ./...
 
 test_coverage:
 	go test ./... -coverprofile=coverage.out
@@ -34,9 +37,9 @@ vet:
 	go vet
 
 lint:
-	golangci-lint run --enable-all
+	golangci-lint run --enable-all --disable tenv
 
-docker-build: test vet
+docker-build: test database_test vet
 	docker build -t ${DOCKER_IMAGE_NAME} .
 
 atlas-schema:

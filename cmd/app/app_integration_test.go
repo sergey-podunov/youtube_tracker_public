@@ -7,8 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ogen-go/ogen/conv"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"log"
 	"net/http"
@@ -16,12 +14,53 @@ import (
 	"time"
 	"youtube_tracker/internal/api"
 	"youtube_tracker/internal/helpers"
+	"youtube_tracker/internal/youtube"
+
+	"github.com/ogen-go/ogen/conv"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/require"
 )
 
 const host = "localhost"
 const port = 8081
+
+type MockYoutubeClient struct {
+	GetChannelIdFunc   func(channelName string) (string, error)
+	GetChannelDataFunc func(channelId string) (*youtube.ChannelData, error)
+}
+
+func (m *MockYoutubeClient) GetChannelId(channelName string) (string, error) {
+	if m.GetChannelIdFunc != nil {
+		return m.GetChannelIdFunc(channelName)
+	}
+	return "", fmt.Errorf("GetChannelId not implemented in mock")
+}
+
+func (m *MockYoutubeClient) GetChannelData(channelId string) (*youtube.ChannelData, error) {
+	if m.GetChannelDataFunc != nil {
+		return m.GetChannelDataFunc(channelId)
+	}
+	return nil, fmt.Errorf("GetChannelData not implemented in mock")
+}
+
+var mockClient = &MockYoutubeClient{
+	GetChannelIdFunc: func(channelName string) (string, error) {
+		if channelName == "Test Channel" {
+			return "TestYoutubeID", nil
+		}
+		return "", fmt.Errorf("channel not found: %s", channelName)
+	},
+	GetChannelDataFunc: func(channelId string) (*youtube.ChannelData, error) {
+		if channelId == "TestYoutubeID" {
+			return &youtube.ChannelData{
+				ChannelID:        "TestYoutubeID",
+				SubscribersCount: 151617,
+			}, nil
+		}
+		return nil, fmt.Errorf("channel data not found for ID: %s", channelId)
+	},
+}
 
 func TestMainHttpHandlerIntegration(t *testing.T) {
 	ctx := context.Background()
@@ -79,6 +118,28 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, respCode, "Response code: %s", respStatus)
 	})
 
+	t.Run("Test statistics job schedule", func(t *testing.T) {
+		_, _ = executePost(t, url+"/youtube/channel", &api.YoutubeChannel{Name: "Test Channel", YoutubeID: "TestYoutubeID"}, nil)
+
+		generationStartedResp := api.StatGenerationStarted{}
+		respCode, respStatus := executePost(t, url+"/schedule", nil, &generationStartedResp)
+
+		assert.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
+		jobStatusPath := generationStartedResp.StatusPath
+		assert.Regexp(t, `^/schedule/job/\d+$`, jobStatusPath, "StatusPath should match /schedule/job/{id} format")
+
+		time.Sleep(time.Second * 2)
+
+		jobStatusResp := api.JobStatus{}
+		respCode, respStatus = executeGet(t, url+jobStatusPath, &jobStatusResp)
+
+		assert.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
+		assert.Equal(t, "COMPLETE", string(jobStatusResp.Status))
+		assert.GreaterOrEqual(t, jobStatusResp.Total.Value, int32(1))
+		assert.GreaterOrEqual(t, jobStatusResp.Ready.Value, int32(1))
+		assert.GreaterOrEqual(t, jobStatusResp.Error.Value, int32(0))
+	})
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	err := app.Stop(ctx)
@@ -91,21 +152,29 @@ func executeGet(t *testing.T, url string, u json.Unmarshaler) (int, string) {
 	resp, err := http.Get(url)
 	require.NoError(t, err)
 
-	defer resp.Body.Close()
-	unmarshalBody(t, resp.Body, u)
+	if u != nil {
+		defer resp.Body.Close()
+		unmarshalBody(t, resp.Body, u)
+	}
 
 	return resp.StatusCode, resp.Status
 }
 
 func executePost(t *testing.T, url string, m json.Marshaler, u json.Unmarshaler) (int, string) {
-	jsonData, err := m.MarshalJSON()
+	var reqBody io.Reader
+	if m != nil {
+		jsonData, err := m.MarshalJSON()
+		require.NoError(t, err)
+		reqBody = io.NopCloser(bytes.NewReader(jsonData))
+	}
+
+	resp, err := http.Post(url, "application/json", reqBody)
 	require.NoError(t, err)
 
-	resp, err := http.Post(url, "application/json", io.NopCloser(bytes.NewReader(jsonData)))
-	require.NoError(t, err)
-
-	defer resp.Body.Close()
-	unmarshalBody(t, resp.Body, u)
+	if u != nil {
+		defer resp.Body.Close()
+		unmarshalBody(t, resp.Body, u)
+	}
 
 	return resp.StatusCode, resp.Status
 }
@@ -130,7 +199,7 @@ func createPgContainer(ctx context.Context) *helpers.PostgresContainer {
 }
 
 func createApp(ctx context.Context, host string, port int, dbUrl string) *App {
-	app, err := NewApp(ctx, host, port, dbUrl)
+	app, err := NewApp(ctx, host, port, dbUrl, mockClient)
 	if err != nil {
 		log.Fatal(err)
 	}

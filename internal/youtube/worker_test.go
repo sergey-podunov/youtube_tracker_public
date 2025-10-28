@@ -11,53 +11,25 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type MockChannelRepository struct {
-	stats.EmptyChannelRepository
-	mock.Mock
-}
-
-func (r *MockChannelRepository) GetChannel(ctx context.Context, youtubeChannelId int64) (*stats.YoutubeChannel, error) {
-	args := r.Called(ctx, youtubeChannelId)
-	if args.Error(1) != nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*stats.YoutubeChannel), args.Error(1)
-}
-
-func (r *MockChannelRepository) StoreSubscriptionsCount(ctx context.Context, channelStats stats.YoutubeChannelStats) (*stats.YoutubeChannelStats, error) {
-	args := r.Called(ctx, channelStats)
-	return args.Get(0).(*stats.YoutubeChannelStats), args.Error(1)
-}
-
-type MockYoutubeClient struct {
-	EmptyClient
-	mock.Mock
-}
-
-func (m *MockYoutubeClient) GetChannelData(channelId string) (*ChannelData, error) {
-	args := m.Called(channelId)
-	return args.Get(0).(*ChannelData), args.Error(1)
-}
-
-type YoutubeChannelWorkerTestSuite struct {
+type StatisticsWorkerTestSuite struct {
 	suite.Suite
-	worker         *YoutubeChannelWorker
+	worker         *StatisticsWorker
 	mockRepository *MockChannelRepository
 	mockClient     *MockYoutubeClient
 }
 
-func (suite *YoutubeChannelWorkerTestSuite) SetupTest() {
+func (suite *StatisticsWorkerTestSuite) SetupTest() {
 
 	suite.mockRepository = new(MockChannelRepository)
 	suite.mockClient = new(MockYoutubeClient)
 
-	suite.worker = &YoutubeChannelWorker{
+	suite.worker = &StatisticsWorker{
 		channelRep: suite.mockRepository,
 		client:     suite.mockClient,
 	}
 }
 
-func (suite *YoutubeChannelWorkerTestSuite) TestGetChannel() {
+func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
 	ctx := context.Background()
 
 	suite.mockRepository.On("GetChannel", ctx, int64(123456789)).Return(&stats.YoutubeChannel{
@@ -88,7 +60,7 @@ func (suite *YoutubeChannelWorkerTestSuite) TestGetChannel() {
 	suite.mockClient.AssertExpectations(suite.T())
 }
 
-func (suite *YoutubeChannelWorkerTestSuite) TestGetChannelStatsError() {
+func (suite *StatisticsWorkerTestSuite) TestGetChannelStatsError() {
 	ctx := context.Background()
 	channelID := int64(123456789)
 
@@ -103,6 +75,6 @@ func (suite *YoutubeChannelWorkerTestSuite) TestGetChannelStatsError() {
 	suite.mockClient.AssertNotCalled(suite.T(), "GetChannelData", mock.Anything)
 }
 
-func TestYoutubeChannelWorkerTestSuite(t *testing.T) {
-	suite.Run(t, new(YoutubeChannelWorkerTestSuite))
+func TestStatisticsWorkerTestSuite(t *testing.T) {
+	suite.Run(t, new(StatisticsWorkerTestSuite))
 }

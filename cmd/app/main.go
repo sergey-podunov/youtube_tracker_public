@@ -10,6 +10,7 @@ import (
 	"time"
 	"youtube_tracker/internal/api"
 	mainHanler "youtube_tracker/internal/http_handler"
+	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
 )
 
@@ -18,13 +19,26 @@ type App struct {
 	httpServer *http.Server
 }
 
-func NewApp(ctx context.Context, host string, port int, dbUrl string) (*App, error) {
+func NewApp(ctx context.Context, host string, port int, dbUrl string, ytClient youtube.Client) (*App, error) {
 	channelRepository, err := stats.NewChannelRepository(ctx, dbUrl)
 	if err != nil {
 		return nil, err
 	}
 
-	httpHandler := mainHanler.NewHttpHandler(channelRepository)
+	var client youtube.Client
+	if ytClient != nil {
+		client = ytClient
+	} else {
+		httpCli, err := youtube.NewHttpClient(ctx, "some/path/to/auth/dir")
+		if err != nil {
+			return nil, err
+		}
+		client = httpCli
+	}
+	worker := youtube.NewStatisticsWorker(channelRepository, client)
+	collector := youtube.NewStatisticsCollector(channelRepository, worker, 10)
+
+	httpHandler := mainHanler.NewHttpHandler(collector, channelRepository)
 	srv, err := api.NewServer(httpHandler)
 	if err != nil {
 		return nil, err
@@ -82,6 +96,7 @@ func main() {
 		host,
 		port,
 		dbUrl,
+		nil,
 	)
 
 	if err != nil {

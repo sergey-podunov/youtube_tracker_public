@@ -5,12 +5,23 @@ import (
 	"youtube_tracker/internal/youtube/stats"
 )
 
-type YoutubeChannelWorker struct {
+type Worker interface {
+	GetChannelStats(channelID int64) error
+}
+
+type StatisticsWorker struct {
 	channelRep stats.ChannelRepository
 	client     Client
 }
 
-func (w *YoutubeChannelWorker) GetChannelStats(channelID int64) error {
+func NewStatisticsWorker(channelRep stats.ChannelRepository, client Client) *StatisticsWorker {
+	return &StatisticsWorker{
+		channelRep: channelRep,
+		client:     client,
+	}
+}
+
+func (w *StatisticsWorker) GetChannelStats(channelID int64) error {
 	ctx := context.Background()
 	channel, err := w.channelRep.GetChannel(ctx, channelID)
 	if err != nil {
