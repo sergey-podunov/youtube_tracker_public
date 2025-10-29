@@ -23,7 +23,9 @@ type StatisticsCollectorTestSuite struct {
 func (suite *StatisticsCollectorTestSuite) SetupTest() {
 	suite.mockRepository = new(MockChannelRepository)
 	suite.mockWorker = new(MockStatisticsWorker)
-	suite.collector = youtube.NewStatisticsCollector(suite.mockRepository, suite.mockWorker, 5)
+	workers := []youtube.Worker{suite.mockWorker}
+
+	suite.collector = youtube.NewStatisticsCollector(suite.mockRepository, workers, 5)
 }
 
 func (suite *StatisticsCollectorTestSuite) TestStatisticsCollector() {
@@ -47,7 +49,7 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollector() {
 	jobID := suite.collector.CollectStatistics(ctx)
 	assert.Equal(t, int64(1), jobID)
 
-	var actualJob *youtube.Job
+	var actualJob youtube.JobView
 
 	assert.Eventually(t, func() bool {
 		job, err := suite.collector.GetJobStatus(jobID)
@@ -86,7 +88,7 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollectorWorkerError() 
 	jobID := suite.collector.CollectStatistics(ctx)
 	assert.Equal(t, int64(1), jobID)
 
-	var actualJob *youtube.Job
+	var actualJob youtube.JobView
 
 	assert.Eventually(t, func() bool {
 		job, err := suite.collector.GetJobStatus(jobID)
@@ -116,7 +118,7 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollectorRunJobError() 
 	jobID := suite.collector.CollectStatistics(ctx)
 	assert.Equal(t, int64(1), jobID)
 
-	var actualJob *youtube.Job
+	var actualJob youtube.JobView
 
 	assert.Eventually(t, func() bool {
 		job, err := suite.collector.GetJobStatus(jobID)

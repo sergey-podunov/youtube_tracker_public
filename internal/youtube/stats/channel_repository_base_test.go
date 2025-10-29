@@ -4,6 +4,7 @@ package stats
 import (
 	"context"
 	"log"
+	"os"
 	"youtube_tracker/internal/helpers"
 
 	"github.com/jackc/pgx/v5"
@@ -110,9 +111,11 @@ func connectWithTrace(ctx context.Context, connStr string) (*pgx.Conn, error) {
 		return nil, err
 	}
 
-	cfg.Tracer = &tracelog.TraceLog{
-		Logger:   stdLogger{},
-		LogLevel: tracelog.LogLevelTrace,
+	if os.Getenv("TRACE_SQL") == "true" {
+		cfg.Tracer = &tracelog.TraceLog{
+			Logger:   stdLogger{},
+			LogLevel: tracelog.LogLevelTrace,
+		}
 	}
 
 	return pgx.ConnectConfig(ctx, cfg)

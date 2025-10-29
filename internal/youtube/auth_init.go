@@ -20,6 +20,8 @@ func getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 	fmt.Printf("Go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
 
+	fmt.Printf("Enter redirect url: ")
+
 	var redirectUrl string
 	if _, err := fmt.Scan(&redirectUrl); err != nil {
 		return nil, fmt.Errorf("Unable to read authorization code %v", err)

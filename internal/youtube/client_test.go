@@ -1,13 +1,14 @@
-//go:build integration
+//go:build thirdparty
 
 package youtube
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"log"
 	"testing"
 	"youtube_tracker/internal/helpers"
+
+	"github.com/stretchr/testify/require"
 )
 
 const youtube_channel_id = "UC16niRr50-MSBwiO3YDb3RA"

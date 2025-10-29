@@ -14,6 +14,8 @@ import (
 	"youtube_tracker/internal/youtube/stats"
 )
 
+const numWorkers = 10
+
 type App struct {
 	dbUrl      string
 	httpServer *http.Server
@@ -37,9 +39,12 @@ func NewApp(ctx context.Context, host string, port int, dbURL string, ytClient y
 		client = httpCli
 	}
 
-	worker := youtube.NewStatisticsWorker(channelRepository, client)
-	collector := youtube.NewStatisticsCollector(channelRepository, worker, 10)
+	workers := make([]youtube.Worker, numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		workers[i] = youtube.NewStatisticsWorker(channelRepository, client)
+	}
 
+	collector := youtube.NewStatisticsCollector(channelRepository, workers, 10)
 	httpHandler := mainHanler.NewHTTPHandler(collector, channelRepository)
 
 	srv, err := api.NewServer(httpHandler)

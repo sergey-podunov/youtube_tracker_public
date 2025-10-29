@@ -27,6 +27,9 @@ integration_test:
 database_test:
 	go test -v -tags=database ./...
 
+thirdparty_test:
+	go test -v -tags=thirdparty ./...
+
 test_coverage:
 	go test ./... -coverprofile=coverage.out
 

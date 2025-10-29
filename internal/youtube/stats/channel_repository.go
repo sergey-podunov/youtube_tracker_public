@@ -8,8 +8,14 @@ import (
 	"time"
 	"youtube_tracker/internal/helpers"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+const PoolMaxSize = 10
+const PoolMinSize = 2
+const PoolMaxConnectionIdleTime = 30 * time.Minute
+const PoolMaxConnectionLifetime = time.Hour
+const PoolHealthCheckPeriod = time.Minute
 
 type ChannelRepository interface {
 	CreateChannel(ctx context.Context, channel YoutubeChannel) (*YoutubeChannel, error)
@@ -23,19 +29,32 @@ type YoutubeChannelRepository struct {
 }
 
 func NewChannelRepository(ctx context.Context, connStr string) (*YoutubeChannelRepository, error) {
-	conn, err := pgx.Connect(ctx, connStr)
+	config, err := pgxpool.ParseConfig(connStr)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to parse connection string: %v\n", err)
+		return nil, err
+	}
+
+
+	config.MaxConns = PoolMaxSize
+	config.MinConns = PoolMinSize
+	config.MaxConnLifetime = PoolMaxConnectionLifetime
+	config.MaxConnIdleTime = PoolMaxConnectionIdleTime
+	config.HealthCheckPeriod = PoolHealthCheckPeriod
+
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		return nil, err
 	}
 
-	if err = conn.Ping(ctx); err != nil {
-		_ = conn.Close(ctx)
+	if err = pool.Ping(ctx); err != nil {
+		pool.Close()
 		return nil, err
 	}
 
 	return &YoutubeChannelRepository{
-		querier: conn,
+		querier: pool,
 	}, nil
 }
 
