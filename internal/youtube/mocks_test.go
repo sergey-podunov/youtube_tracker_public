@@ -14,8 +14,8 @@ var errUnimplemented = errors.New("unimplemented")
 
 type EmptyChannelRepository struct{}
 
-func (r *EmptyChannelRepository) CreateChannel(ctx context.Context, channel stats.YoutubeChannel) (*stats.YoutubeChannel, error) {
-	return nil, errUnimplemented
+func (r *EmptyChannelRepository) GetOrCreateChannel(ctx context.Context, channel stats.YoutubeChannel) (*stats.YoutubeChannel, bool, error) {
+	return nil, false, errUnimplemented
 }
 
 func (r *EmptyChannelRepository) GetChannel(ctx context.Context, youtubeChannelId int64) (*stats.YoutubeChannel, error) {

@@ -20,10 +20,11 @@ func (suite *ChannelRepoTestSuite) TestCreateChannel() {
 	t := suite.T()
 	ctx := suite.ctx
 
-	channel, err := suite.repository.CreateChannel(
+	channel, err := suite.repository.createChannel(
 		ctx,
+		suite.tx,
 		YoutubeChannel{
-			ExternalId: "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
+			ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
 			Name:       "Google Developers",
 		})
 	require.NoError(t, err)
@@ -32,10 +33,10 @@ func (suite *ChannelRepoTestSuite) TestCreateChannel() {
 	var actualChannel YoutubeChannel
 	err =
 		suite.tx.QueryRow(ctx, "SELECT * FROM youtube_channel WHERE youtube_channel_id = $1", channel.YoutubeChannelId).
-			Scan(&actualChannel.YoutubeChannelId, &actualChannel.ExternalId, &actualChannel.Name, &actualChannel.CreatedAt, &actualChannel.CheckedAt)
+			Scan(&actualChannel.YoutubeChannelId, &actualChannel.ExternalID, &actualChannel.Name, &actualChannel.CreatedAt, &actualChannel.CheckedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalId)
+	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
 	assert.Equal(t, "Google Developers", actualChannel.Name)
 	assert.False(t, actualChannel.CreatedAt.IsZero())
 	assert.Equal(t, channel.CreatedAt, actualChannel.CreatedAt)
@@ -67,7 +68,7 @@ func (suite *ChannelRepoTestSuite) TestGetChannel() {
 	require.NoError(t, err)
 
 	assert.Equal(t, insertedID, actualChannel.YoutubeChannelId)
-	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalId)
+	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
 	assert.Equal(t, "Google Developers", actualChannel.Name)
 	assert.Equal(t, createdAt, actualChannel.CreatedAt)
 }
@@ -85,10 +86,11 @@ func (suite *ChannelRepoTestSuite) TestStoreSubscriptionsCount() {
 	t := suite.T()
 	ctx := suite.ctx
 
-	channel, err := suite.repository.CreateChannel(
+	channel, err := suite.repository.createChannel(
 		ctx,
+		suite.tx,
 		YoutubeChannel{
-			ExternalId: "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
+			ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
 			Name:       "Google Developers",
 		})
 	require.NoError(t, err)
@@ -97,7 +99,7 @@ func (suite *ChannelRepoTestSuite) TestStoreSubscriptionsCount() {
 	channelStats, err := suite.repository.StoreSubscriptionsCount(
 		ctx,
 		YoutubeChannelStats{
-			YoutubeChannelId: channel.YoutubeChannelId,
+			YoutubeChannelID: channel.YoutubeChannelId,
 			SubscribersCount: 3,
 		})
 	require.NoError(t, err)
@@ -117,15 +119,15 @@ func (suite *ChannelRepoTestSuite) TestStoreSubscriptionsCount() {
 	var actualChannelStats YoutubeChannelStats
 	err = suite.tx.QueryRow(ctx, query, channel.YoutubeChannelId).
 		Scan(
-			&actualChannelStats.YoutubeChannelId,
-			&actualChannelStats.YoutubeChannelStatId,
+			&actualChannelStats.YoutubeChannelID,
+			&actualChannelStats.YoutubeChannelStatID,
 			&actualChannelStats.SubscribersCount,
 			&actualChannelStats.CreatedAt,
 		)
 	require.NoError(t, err)
 
-	assert.Equal(t, channelStats.YoutubeChannelId, actualChannelStats.YoutubeChannelId)
-	assert.Equal(t, channelStats.YoutubeChannelStatId, actualChannelStats.YoutubeChannelStatId)
+	assert.Equal(t, channelStats.YoutubeChannelID, actualChannelStats.YoutubeChannelID)
+	assert.Equal(t, channelStats.YoutubeChannelStatID, actualChannelStats.YoutubeChannelStatID)
 	assert.Equal(t, channelStats.SubscribersCount, actualChannelStats.SubscribersCount)
 	assert.Equal(t, int64(3), actualChannelStats.SubscribersCount)
 	assert.False(t, actualChannelStats.CreatedAt.IsZero())

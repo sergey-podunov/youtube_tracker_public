@@ -30,21 +30,30 @@ func (handler *MainHTTPHandler) StatisticsGeneratePost(ctx context.Context) (*ap
 	}, nil
 }
 
-func (handler *MainHTTPHandler) YoutubeChannelPost(ctx context.Context, req *api.YoutubeChannel) (*api.YoutubeChannel, error) {
+func (handler *MainHTTPHandler) YoutubeChannelPost(ctx context.Context, req *api.YoutubeChannel) (api.YoutubeChannelPostRes, error) {
 	channel := stats.YoutubeChannel{
-		ExternalId: req.YoutubeID,
+		ExternalID: req.YoutubeID,
 		Name:       req.Name,
 	}
 
-	createdChannel, err := handler.channelRepository.CreateChannel(ctx, channel)
+	createdChannel, isNew, err := handler.channelRepository.GetOrCreateChannel(ctx, channel)
 	if err != nil {
 		return nil, err
 	}
 
-	return &api.YoutubeChannel{
+	if !isNew {
+		return &api.YoutubeChannelPostConflict{
+			ID:        api.NewOptInt64(createdChannel.YoutubeChannelId),
+			Name:      createdChannel.Name,
+			YoutubeID: createdChannel.ExternalID,
+			CreatedAt: api.NewOptString(createdChannel.CreatedAt.Format(time.RFC3339)),
+		}, err
+	}
+
+	return &api.YoutubeChannelPostCreated{
 		ID:        api.NewOptInt64(createdChannel.YoutubeChannelId),
 		Name:      createdChannel.Name,
-		YoutubeID: createdChannel.ExternalId,
+		YoutubeID: createdChannel.ExternalID,
 		CreatedAt: api.NewOptString(createdChannel.CreatedAt.Format(time.RFC3339)),
 	}, nil
 }
@@ -62,7 +71,7 @@ func (handler *MainHTTPHandler) YoutubeChannelIDGet(ctx context.Context, params 
 	return &api.YoutubeChannel{
 		ID:        api.NewOptInt64(channel.YoutubeChannelId),
 		Name:      channel.Name,
-		YoutubeID: channel.ExternalId,
+		YoutubeID: channel.ExternalID,
 		CreatedAt: api.NewOptString(channel.CreatedAt.Format(time.RFC3339)),
 	}, nil
 }

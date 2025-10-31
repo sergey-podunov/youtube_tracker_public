@@ -111,6 +111,33 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		assert.Equal(t, channelPostResp.ID.Value, channelGetResp.ID.Value)
 	})
 
+	t.Run("/youtube/channel posts conflict", func(t *testing.T) {
+		executePost(
+			t,
+			url+"/youtube/channel",
+			&api.YoutubeChannel{
+				Name:      "Test Channel conflict",
+				YoutubeID: "TestYoutubeID_conflict",
+			},
+			nil,
+		)
+
+		channelErrorResp := &api.YoutubeChannelPostConflict{}
+		respCode, respStatus := executePost(
+			t,
+			url+"/youtube/channel",
+			&api.YoutubeChannel{
+				Name:      "Test Channel conflict",
+				YoutubeID: "TestYoutubeID_conflict",
+			},
+			channelErrorResp,
+		)
+
+		assert.Equal(t, http.StatusConflict, respCode, "Response code: %s", respStatus)
+		assert.Equal(t, "Test Channel conflict", channelErrorResp.Name)
+		assert.Equal(t, "TestYoutubeID_conflict", channelErrorResp.YoutubeID)
+	})
+
 	t.Run("Test /youtube/channel not found", func(t *testing.T) {
 		channelGetResp := api.YoutubeChannel{}
 		respCode, respStatus := executeGet(t, url+"/youtube/channel/123456", &channelGetResp)
@@ -199,7 +226,7 @@ func createPgContainer(ctx context.Context) *helpers.PostgresContainer {
 }
 
 func createApp(ctx context.Context, host string, port int, dbUrl string) *App {
-	app, err := NewApp(ctx, host, port, dbUrl, mockClient)
+	app, err := NewApp(ctx, host, port, dbUrl, "", mockClient)
 	if err != nil {
 		log.Fatal(err)
 	}

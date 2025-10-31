@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -53,3 +55,41 @@ func CreatePostgresContainer(ctx context.Context) (*PostgresContainer, error) {
 		ConnectionString:  connStr,
 	}, nil
 }
+
+func StartPgAndGetConnection(ctx context.Context) (*pgx.Conn, error) {
+	pgContainer, err := CreatePostgresContainer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := connectWithTrace(ctx, pgContainer.ConnectionString)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+
+type stdLogger struct{}
+
+func (l stdLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
+	log.Printf("[pgx %s] %s - %v", level, msg, data)
+}
+
+func connectWithTrace(ctx context.Context, connStr string) (*pgx.Conn, error) {
+	cfg, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return nil, err
+	}
+
+	if os.Getenv("TRACE_SQL") == "true" {
+		cfg.Tracer = &tracelog.TraceLog{
+			Logger:   stdLogger{},
+			LogLevel: tracelog.LogLevelTrace,
+		}
+	}
+
+	return pgx.ConnectConfig(ctx, cfg)
+}
+

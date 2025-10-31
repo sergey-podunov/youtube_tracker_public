@@ -35,6 +35,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/YoutubeChannel'
+        409:
+          description: Already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YoutubeChannel'
   /youtube/channel/{id}:
     get:
       summary: Get Youtube Channel by ID
@@ -90,6 +96,15 @@ paths:
           content: { }
 components:
   schemas:
+    YoutubeChannelExists:
+      description: Error
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: error message
     Status:
       description: Service status
       type: object

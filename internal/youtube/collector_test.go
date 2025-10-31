@@ -38,7 +38,7 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollector() {
 	suite.mockRepository.On("GetChannels", ctx, mock.MatchedBy(assertTime), 5).Return([]stats.YoutubeChannel{
 		{
 			YoutubeChannelId: int64(123456789),
-			ExternalId:       "3263yw",
+			ExternalID:       "3263yw",
 			Name:             "Google Dev",
 			CreatedAt:        time.Time{},
 		},
@@ -77,7 +77,7 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollectorWorkerError() 
 	suite.mockRepository.On("GetChannels", ctx, mock.Anything, mock.Anything).Return([]stats.YoutubeChannel{
 		{
 			YoutubeChannelId: int64(123456789),
-			ExternalId:       "3263yw",
+			ExternalID:       "3263yw",
 			Name:             "Google Dev",
 			CreatedAt:        time.Time{},
 		},

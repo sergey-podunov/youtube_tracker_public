@@ -24,8 +24,8 @@ func (suite *ChannelRepoGetChannelsTestSuite) TestGetChannels_testReturnObject()
 
 	createdAt := helpers.ParseTime("2025-10-12T05:06:07Z")
 	expectedChannels := []YoutubeChannel{
-		{ExternalId: "ext_id_1", Name: "Channel 1", CreatedAt: createdAt, CheckedAt: helpers.Ptr(helpers.ParseTime("2025-10-25T05:06:07Z"))},
-		{ExternalId: "ext_id_2", Name: "Channel 2", CreatedAt: createdAt},
+		{ExternalID: "ext_id_1", Name: "Channel 1", CreatedAt: createdAt, CheckedAt: helpers.Ptr(helpers.ParseTime("2025-10-25T05:06:07Z"))},
+		{ExternalID: "ext_id_2", Name: "Channel 2", CreatedAt: createdAt},
 	}
 
 	if err := insertChannels(ctx, tx, expectedChannels); err != nil {
@@ -49,7 +49,7 @@ func toView(in []YoutubeChannel) []channelView {
 	out := make([]channelView, len(in))
 	for i, c := range in {
 		out[i] = channelView{
-			ExternalId: c.ExternalId,
+			ExternalId: c.ExternalID,
 			Name:       c.Name,
 			CreatedAt:  c.CreatedAt,
 			CheckedAt:  c.CheckedAt,
@@ -80,7 +80,7 @@ func (suite *ChannelRepoGetChannelsTestSuite) TestGetChannels() {
 		},
 		{
 			name:               "checkedAt is null",
-			channelsBeforeTest: []YoutubeChannel{{ExternalId: "id1", Name: "Channel 1", CreatedAt: createdAt}},
+			channelsBeforeTest: []YoutubeChannel{{ExternalID: "id1", Name: "Channel 1", CreatedAt: createdAt}},
 			count:              10,
 			checkedBefore:      helpers.ParseTime("2025-10-24T00:00:00Z"),
 			expectedIds:        []string{"id1"},
@@ -88,8 +88,8 @@ func (suite *ChannelRepoGetChannelsTestSuite) TestGetChannels() {
 		{
 			name: "matched by checkedAt",
 			channelsBeforeTest: []YoutubeChannel{
-				{ExternalId: "id2", Name: "Channel 2", CreatedAt: createdAt, CheckedAt: helpers.Ptr(helpers.ParseTime("2025-10-01T00:00:00Z"))},
-				{ExternalId: "id3", Name: "Channel 3", CreatedAt: createdAt, CheckedAt: helpers.Ptr(helpers.ParseTime("2025-09-01T00:00:00Z"))},
+				{ExternalID: "id2", Name: "Channel 2", CreatedAt: createdAt, CheckedAt: helpers.Ptr(helpers.ParseTime("2025-10-01T00:00:00Z"))},
+				{ExternalID: "id3", Name: "Channel 3", CreatedAt: createdAt, CheckedAt: helpers.Ptr(helpers.ParseTime("2025-09-01T00:00:00Z"))},
 			},
 			count:         10,
 			checkedBefore: helpers.ParseTime("2025-09-24T00:00:00Z"),
@@ -98,9 +98,9 @@ func (suite *ChannelRepoGetChannelsTestSuite) TestGetChannels() {
 		{
 			name: "limit by count",
 			channelsBeforeTest: []YoutubeChannel{
-				{ExternalId: "id4", Name: "Channel 4", CreatedAt: createdAt},
-				{ExternalId: "id5", Name: "Channel 5", CreatedAt: createdAt},
-				{ExternalId: "id6", Name: "Channel 6", CreatedAt: createdAt},
+				{ExternalID: "id4", Name: "Channel 4", CreatedAt: createdAt},
+				{ExternalID: "id5", Name: "Channel 5", CreatedAt: createdAt},
+				{ExternalID: "id6", Name: "Channel 6", CreatedAt: createdAt},
 			},
 			count:         2,
 			checkedBefore: helpers.ParseTime("2025-10-24T00:00:00Z"),
@@ -133,7 +133,7 @@ func (suite *ChannelRepoGetChannelsTestSuite) TestGetChannels() {
 			var actualExternalIds []string
 			for _, ch := range actualChannels {
 				log.Printf("Channel: %v", ch)
-				actualExternalIds = append(actualExternalIds, ch.ExternalId)
+				actualExternalIds = append(actualExternalIds, ch.ExternalID)
 			}
 			assert.ElementsMatch(t, tc.expectedIds, actualExternalIds, "Returned channels do not match expected IDs (ignoring order)")
 		})

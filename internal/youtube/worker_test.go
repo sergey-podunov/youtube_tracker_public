@@ -30,7 +30,7 @@ func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
 
 	suite.mockRepository.On("GetChannel", ctx, int64(123456789)).Return(&stats.YoutubeChannel{
 		YoutubeChannelId: int64(123456789),
-		ExternalId:       "3263yw",
+		ExternalID:       "3263yw",
 		Name:             "Google Dev",
 		CreatedAt:        time.Time{},
 	}, nil)
@@ -41,11 +41,11 @@ func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
 	}, nil)
 
 	suite.mockRepository.On("StoreSubscriptionsCount", ctx, mock.MatchedBy(func(channelStats stats.YoutubeChannelStats) bool {
-		return channelStats.YoutubeChannelId == int64(123456789) && channelStats.SubscribersCount == 63362
+		return channelStats.YoutubeChannelID == int64(123456789) && channelStats.SubscribersCount == 63362
 	})).Return(
 		&stats.YoutubeChannelStats{
-			YoutubeChannelStatId: int64(111),
-			YoutubeChannelId:     int64(123456789),
+			YoutubeChannelStatID: int64(111),
+			YoutubeChannelID:     int64(123456789),
 			SubscribersCount:     63362,
 		}, nil)
 

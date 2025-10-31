@@ -2,4 +2,20 @@
 
 GET {{url}}/status
 
-###
+### store channel
+POST {{url}}/youtube/channel
+Content-Type: application/json
+
+{
+  "name": "@BBCNews",
+  "youtube_id": "UC16niRr50-MSBwiO3YDb3RA"
+}
+
+> {%
+    const responseBody = response.body;
+    client.global.set("channel_id", responseBody.id);
+%}
+
+### get channel by id
+GET {{url}}/youtube/channel/{{channel_id}}
+Accept: application/json

@@ -29,13 +29,13 @@ func (w *StatisticsWorker) GetChannelStats(channelID int64) error {
 		return err
 	}
 
-	channelData, err := w.client.GetChannelData(channel.ExternalId)
+	channelData, err := w.client.GetChannelData(channel.ExternalID)
 	if err != nil {
 		return err
 	}
 
 	_, err = w.channelRep.StoreSubscriptionsCount(ctx, stats.YoutubeChannelStats{
-		YoutubeChannelId: channelID,
+		YoutubeChannelID: channelID,
 		SubscribersCount: channelData.SubscribersCount,
 	})
 	if err != nil {

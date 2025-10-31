@@ -3,18 +3,15 @@ package stats
 
 import (
 	"context"
-	"log"
-	"os"
 	"youtube_tracker/internal/helpers"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/stretchr/testify/suite"
 )
 
 type BaseChannelRepoTestSuite struct {
 	suite.Suite
-	pgContainer *helpers.PostgresContainer
+	//pgContainer *helpers.PostgresContainer
 	repository  *YoutubeChannelRepository
 	ctx         context.Context
 	conn        *pgx.Conn // The main connection for the suite
@@ -22,17 +19,19 @@ type BaseChannelRepoTestSuite struct {
 }
 
 func (suite *BaseChannelRepoTestSuite) SetupSuite() {
-	suite.ctx = context.Background()
+	ctx := context.Background()
 	t := suite.T()
+	suite.ctx = ctx
 
-	pgContainer, err := helpers.CreatePostgresContainer(suite.ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	//pgContainer, err := helpers.CreatePostgresContainer(suite.ctx)
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	//
+	//suite.pgContainer = pgContainer
 
-	suite.pgContainer = pgContainer
-
-	conn, err := connectWithTrace(suite.ctx, suite.pgContainer.ConnectionString)
+	//conn, err := connectWithTrace(suite.ctx, suite.pgContainer.ConnectionString)
+	conn, err := helpers.StartPgAndGetConnection(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,9 +44,9 @@ func (suite *BaseChannelRepoTestSuite) TearDownSuite() {
 		_ = suite.conn.Close(suite.ctx)
 	}
 
-	if err := suite.pgContainer.Terminate(suite.ctx); err != nil {
+	/*if err := suite.pgContainer.Terminate(suite.ctx); err != nil {
 		log.Fatalf("error terminating postgres container: %s", err)
-	}
+	}*/
 }
 
 func (suite *BaseChannelRepoTestSuite) SetupTest() {
@@ -90,33 +89,11 @@ func insertChannels(ctx context.Context, tx pgx.Tx, expectedChannels []YoutubeCh
 			)`
 
 	for _, channel := range expectedChannels {
-		_, err := tx.Exec(ctx, query, channel.Name, channel.ExternalId, channel.CreatedAt, channel.CheckedAt)
+		_, err := tx.Exec(ctx, query, channel.Name, channel.ExternalID, channel.CreatedAt, channel.CheckedAt)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-type stdLogger struct{}
-
-func (l stdLogger) Log(ctx context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
-	log.Printf("[pgx %s] %s - %v", level, msg, data)
-}
-
-func connectWithTrace(ctx context.Context, connStr string) (*pgx.Conn, error) {
-	cfg, err := pgx.ParseConfig(connStr)
-	if err != nil {
-		return nil, err
-	}
-
-	if os.Getenv("TRACE_SQL") == "true" {
-		cfg.Tracer = &tracelog.TraceLog{
-			Logger:   stdLogger{},
-			LogLevel: tracelog.LogLevelTrace,
-		}
-	}
-
-	return pgx.ConnectConfig(ctx, cfg)
 }

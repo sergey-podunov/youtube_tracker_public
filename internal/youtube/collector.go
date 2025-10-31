@@ -155,7 +155,7 @@ func (s *WorkerCollector) runJob(ctx context.Context, job *job) {
 
 	close(jobsChan)
 
-	_ = <-completeChan
+	<-completeChan
 
 	log.Printf("closing job %d result channel", job.ID)
 	close(completeChan)

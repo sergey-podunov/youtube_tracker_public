@@ -21,7 +21,7 @@ type App struct {
 	httpServer *http.Server
 }
 
-func NewApp(ctx context.Context, host string, port int, dbURL string, ytClient youtube.Client) (*App, error) {
+func NewApp(ctx context.Context, host string, port int, dbURL string, authDir string, ytClient youtube.Client) (*App, error) {
 	channelRepository, err := stats.NewChannelRepository(ctx, dbURL)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func NewApp(ctx context.Context, host string, port int, dbURL string, ytClient y
 	if ytClient != nil {
 		client = ytClient
 	} else {
-		httpCli, err := youtube.NewHttpClient(ctx, "some/path/to/auth/dir")
+		httpCli, err := youtube.NewHttpClient(ctx, authDir)
 		if err != nil {
 			return nil, err
 		}
@@ -94,6 +94,7 @@ func main() {
 	host := getEnv("APP_HOST", "")
 	portStr := getEnv("APP_PORT", "8080")
 	dbUrl := getEnv("DB_URL", "")
+	authDir := getEnv("AUTH_DIR", "")
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
@@ -105,6 +106,7 @@ func main() {
 		host,
 		port,
 		dbUrl,
+		authDir,
 		nil,
 	)
 
