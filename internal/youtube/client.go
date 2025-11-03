@@ -17,7 +17,7 @@ import (
 
 type Client interface {
 	GetChannelId(channelName string) (string, error)
-	GetChannelData(channelId string) (*ChannelData, error)
+	GetChannelData(channelId string) (ChannelData, error)
 }
 
 type ChannelData struct {
@@ -43,7 +43,7 @@ func NewHttpClient(ctx context.Context, authDirPath string) (*HttpClient, error)
 		return nil, fmt.Errorf("unable to parse client secret file to config: %v", err)
 	}
 
-	client, err := getClient(ctx, authDirPath, config)
+	client, err := createClient(ctx, authDirPath, config)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve Youtube client: %v", err)
 	}
@@ -76,17 +76,17 @@ func (c *HttpClient) GetChannelId(channelName string) (string, error) {
 	return channelId, nil
 }
 
-func (c *HttpClient) GetChannelData(channelId string) (*ChannelData, error) {
+func (c *HttpClient) GetChannelData(channelId string) (ChannelData, error) {
 	call := c.service.Channels.List([]string{"snippet,contentDetails,statistics"})
 	call = call.Id(channelId)
 
 	response, err := call.Do()
 	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve channel data: %v", err)
+		return ChannelData{}, fmt.Errorf("unable to retrieve channel data: %v", err)
 	}
 
 	if len(response.Items) == 0 {
-		return nil, fmt.Errorf("no channel found with the specified channel ID: %s", channelId)
+		return ChannelData{}, fmt.Errorf("no channel found with the specified channel ID: %s", channelId)
 	}
 
 	log.Printf("Channel ID: %s\n", response.Items[0].Id)
@@ -94,13 +94,13 @@ func (c *HttpClient) GetChannelData(channelId string) (*ChannelData, error) {
 	channel := response.Items[0]
 	subscribersCount := channel.Statistics.SubscriberCount
 
-	return &ChannelData{
+	return ChannelData{
 		ChannelID:        channelId,
 		SubscribersCount: int64(subscribersCount),
 	}, nil
 }
 
-func getClient(ctx context.Context, authDirPath string, config *oauth2.Config) (*http.Client, error) {
+func createClient(ctx context.Context, authDirPath string, config *oauth2.Config) (*http.Client, error) {
 	cacheFile := tokenCacheFile(authDirPath)
 
 	token, err := tokenFromFile(cacheFile)

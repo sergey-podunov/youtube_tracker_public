@@ -27,7 +27,7 @@ const port = 8081
 
 type MockYoutubeClient struct {
 	GetChannelIdFunc   func(channelName string) (string, error)
-	GetChannelDataFunc func(channelId string) (*youtube.ChannelData, error)
+	GetChannelDataFunc func(channelId string) (youtube.ChannelData, error)
 }
 
 func (m *MockYoutubeClient) GetChannelId(channelName string) (string, error) {
@@ -37,11 +37,11 @@ func (m *MockYoutubeClient) GetChannelId(channelName string) (string, error) {
 	return "", fmt.Errorf("GetChannelId not implemented in mock")
 }
 
-func (m *MockYoutubeClient) GetChannelData(channelId string) (*youtube.ChannelData, error) {
+func (m *MockYoutubeClient) GetChannelData(channelId string) (youtube.ChannelData, error) {
 	if m.GetChannelDataFunc != nil {
 		return m.GetChannelDataFunc(channelId)
 	}
-	return nil, fmt.Errorf("GetChannelData not implemented in mock")
+	return youtube.ChannelData{}, fmt.Errorf("GetChannelData not implemented in mock")
 }
 
 var mockClient = &MockYoutubeClient{
@@ -51,14 +51,14 @@ var mockClient = &MockYoutubeClient{
 		}
 		return "", fmt.Errorf("channel not found: %s", channelName)
 	},
-	GetChannelDataFunc: func(channelId string) (*youtube.ChannelData, error) {
+	GetChannelDataFunc: func(channelId string) (youtube.ChannelData, error) {
 		if channelId == "TestYoutubeID" {
-			return &youtube.ChannelData{
+			return youtube.ChannelData{
 				ChannelID:        "TestYoutubeID",
 				SubscribersCount: 151617,
 			}, nil
 		}
-		return nil, fmt.Errorf("channel data not found for ID: %s", channelId)
+		return youtube.ChannelData{}, fmt.Errorf("channel data not found for ID: %s", channelId)
 	},
 }
 

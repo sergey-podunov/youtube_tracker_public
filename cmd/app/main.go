@@ -13,7 +13,7 @@ import (
 	mainHanler "youtube_tracker/internal/http_handler"
 	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
-	
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -35,46 +35,46 @@ func NewApp(ctx context.Context, host string, port int, dbURL string, authDir st
 	if err != nil {
 		return nil, err
 	}
-	
+
 	channelRepository, err := stats.NewChannelRepository(ctx, dbURL)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	channelService := stats.NewYoutubeChannelService(dbPool, channelRepository)
-	
+
 	var client youtube.Client
 	if ytClient != nil {
 		client = ytClient
 	} else {
-		httpCli, err := youtube.NewHttpClient(ctx, authDir)
+		httpClient, err := youtube.NewHttpClient(ctx, authDir)
 		if err != nil {
 			return nil, err
 		}
-		
-		client = httpCli
+
+		client = httpClient
 	}
-	
+
 	workers := make([]youtube.Worker, numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		workers[i] = youtube.NewStatisticsWorker(channelRepository, client)
 	}
-	
+
 	collector := youtube.NewStatisticsCollector(channelRepository, workers, 10)
 	httpHandler := mainHanler.NewHTTPHandler(collector, channelService, channelRepository)
-	
+
 	srv, err := api.NewServer(httpHandler)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	httpServer := &http.Server{
 		Addr:         host + ":" + strconv.Itoa(port),
 		Handler:      srv,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-	
+
 	return &App{
 		dbUrl:      dbURL,
 		httpServer: httpServer,
@@ -87,22 +87,22 @@ func createDbPool(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to parse connection string: %v\n", err)
 		return nil, err
 	}
-	
+
 	config.MaxConns = PoolMaxSize
 	config.MinConns = PoolMinSize
 	config.MaxConnLifetime = PoolMaxConnectionLifetime
 	config.MaxConnIdleTime = PoolMaxConnectionIdleTime
 	config.HealthCheckPeriod = PoolHealthCheckPeriod
-	
+
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		return nil, err
 	}
-	
+
 	if err = pool.Ping(ctx); err != nil {
 		pool.Close()
-		return  nil, err
+		return nil, err
 	}
 	return pool, nil
 }

@@ -14,6 +14,14 @@ type StatisticsCollector interface {
 	GetJobStatus(jobID int64) (JobView, error)
 }
 
+type JobView struct {
+	ID     int64
+	Status JobStatus
+	Total  int32
+	Ready  int32
+	Error  int32
+}
+
 type JobStatus string
 
 const (
@@ -31,14 +39,6 @@ type job struct {
 	Error      int32
 	ChannelIDs []int64
 	Mu         sync.RWMutex
-}
-
-type JobView struct {
-	ID     int64
-	Status JobStatus
-	Total  int32
-	Ready  int32
-	Error  int32
 }
 
 type result struct {
