@@ -1,5 +1,5 @@
 //go:build database
-
+//nolint:testpackage //because of using direct queuer replacement for db tests isolation
 package stats
 
 import (
@@ -14,6 +14,10 @@ import (
 
 type ChannelRepoTestSuite struct {
 	BaseChannelRepoTestSuite
+}
+
+func TestChannelRepoTestSuite(t *testing.T) {
+	suite.Run(t, new(ChannelRepoTestSuite))
 }
 
 func (suite *ChannelRepoTestSuite) TestCreateChannel() {
@@ -64,9 +68,10 @@ func (suite *ChannelRepoTestSuite) TestGetChannel() {
 	err := suite.tx.QueryRow(ctx, query, "Google Developers", "UC-lHJZR3Gqxm24_Vd_AJ5Yw", createdAt).Scan(&insertedID)
 	require.NoError(t, err)
 
-	actualChannel, err := suite.repository.GetChannel(ctx, insertedID)
+	actualChannel, ok, err := suite.repository.GetChannel(ctx, insertedID)
 	require.NoError(t, err)
-
+	
+	assert.True(suite.T(), ok)
 	assert.Equal(t, insertedID, actualChannel.YoutubeChannelId)
 	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
 	assert.Equal(t, "Google Developers", actualChannel.Name)
@@ -77,9 +82,10 @@ func (suite *ChannelRepoTestSuite) TestGetChannelNotFound() {
 	t := suite.T()
 	ctx := suite.ctx
 
-	actualChannel, err := suite.repository.GetChannel(ctx, 1234789)
-	assert.Error(t, err)
+	actualChannel, ok, err := suite.repository.GetChannel(ctx, 1234789)
+	assert.Nil(t, err)
 	assert.Nil(t, actualChannel)
+	assert.False(suite.T(), ok)
 }
 
 func (suite *ChannelRepoTestSuite) TestStoreSubscriptionsCount() {
@@ -132,8 +138,4 @@ func (suite *ChannelRepoTestSuite) TestStoreSubscriptionsCount() {
 	assert.Equal(t, int64(3), actualChannelStats.SubscribersCount)
 	assert.False(t, actualChannelStats.CreatedAt.IsZero())
 	assert.Equal(t, channelStats.CreatedAt, actualChannelStats.CreatedAt)
-}
-
-func TestChannelRepoTestSuite(t *testing.T) {
-	suite.Run(t, new(ChannelRepoTestSuite))
 }

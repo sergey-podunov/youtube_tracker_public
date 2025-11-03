@@ -7,7 +7,6 @@ linters:
     - usetesting
   disable:
     - tenv
-#    - testpackage
 
 issues:
   exclude-use-default: false

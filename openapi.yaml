@@ -63,6 +63,28 @@ paths:
         '404':
           description: Not found
           content: {}
+  /youtube/channel/{id}/statistics:
+    get:
+      summary: Get Youtube Channel statistics by ID
+      description: Returns a YoutubeChannel statistics by ID
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: ID of the channel
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YoutubeChannelStatistics'
+        '404':
+          description: Not found
+          content: { }
   /schedule:
     post:
       description: Initiate statistics generation
@@ -130,6 +152,36 @@ components:
           description: youtube uniq
         created_at:
           type: string
+    YoutubeChannelStatistics:
+      description: Youtube Channel statistics
+      type: object
+      required:
+        - id
+        - statistics
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: internal id
+        youtube_id:
+          type: string
+          description: youtube uniq
+        statistics:
+          type: array
+          minItems: 0
+          items:
+            type: object
+            required:
+              - date
+              - subscribers
+            properties:
+              date:
+                type: string
+                format: date
+              subscribers:
+                type: integer
+                format: int64
+                description: amount of subscribers
     StatGenerationStarted:
       description: Generation started
       type: object

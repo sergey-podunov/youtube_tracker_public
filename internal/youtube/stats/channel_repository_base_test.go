@@ -11,11 +11,10 @@ import (
 
 type BaseChannelRepoTestSuite struct {
 	suite.Suite
-	//pgContainer *helpers.PostgresContainer
-	repository  *YoutubeChannelRepository
-	ctx         context.Context
-	conn        *pgx.Conn // The main connection for the suite
-	tx          pgx.Tx    // The transaction for the current test
+	repository *YoutubeChannelRepository
+	ctx        context.Context
+	conn       *pgx.Conn // The main connection for the suite
+	tx         pgx.Tx    // The transaction for the current test
 }
 
 func (suite *BaseChannelRepoTestSuite) SetupSuite() {
@@ -23,14 +22,6 @@ func (suite *BaseChannelRepoTestSuite) SetupSuite() {
 	t := suite.T()
 	suite.ctx = ctx
 
-	//pgContainer, err := helpers.CreatePostgresContainer(suite.ctx)
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
-	//
-	//suite.pgContainer = pgContainer
-
-	//conn, err := connectWithTrace(suite.ctx, suite.pgContainer.ConnectionString)
 	conn, err := helpers.StartPgAndGetConnection(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -43,10 +34,6 @@ func (suite *BaseChannelRepoTestSuite) TearDownSuite() {
 	if suite.conn != nil {
 		_ = suite.conn.Close(suite.ctx)
 	}
-
-	/*if err := suite.pgContainer.Terminate(suite.ctx); err != nil {
-		log.Fatalf("error terminating postgres container: %s", err)
-	}*/
 }
 
 func (suite *BaseChannelRepoTestSuite) SetupTest() {
@@ -60,7 +47,7 @@ func (suite *BaseChannelRepoTestSuite) SetupTest() {
 	suite.tx = tx
 
 	// Reset repository with transaction for each test
-	suite.repository = &YoutubeChannelRepository{querier: tx}
+	suite.repository = &YoutubeChannelRepository{db: tx}
 }
 
 func (suite *BaseChannelRepoTestSuite) TearDownTest() {
@@ -87,9 +74,36 @@ func insertChannels(ctx context.Context, tx pgx.Tx, expectedChannels []YoutubeCh
 				$3,
 			    $4
 			)`
-
+	
 	for _, channel := range expectedChannels {
 		_, err := tx.Exec(ctx, query, channel.Name, channel.ExternalID, channel.CreatedAt, channel.CheckedAt)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+//nolint:unused
+func insertChannelsWithId(ctx context.Context, tx pgx.Tx, expectedChannels []YoutubeChannel) error {
+	query := `
+			INSERT INTO youtube_channel (
+			        youtube_channel_id,
+					channel_name,
+					external_id,
+					created_at,
+			        checked_at
+			) VALUES (
+				$1,
+				$2,
+				$3,
+			    $4,
+			    $5
+			)`
+	
+	for _, channel := range expectedChannels {
+		_, err := tx.Exec(ctx, query, channel.YoutubeChannelId, channel.Name, channel.ExternalID, channel.CreatedAt, channel.CheckedAt)
 		if err != nil {
 			return err
 		}
