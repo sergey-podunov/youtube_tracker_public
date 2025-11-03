@@ -1,4 +1,5 @@
 //go:build database
+
 //nolint:testpackage //because of using direct queuer replacement for db tests isolation
 package stats
 
@@ -62,7 +63,7 @@ func (suite *ChannelRepoTestSuite) TestGetChannel() {
 		$3
 	)
 	RETURNING youtube_channel_id`
-	
+
 	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
 	var insertedID int64
 	err := suite.tx.QueryRow(ctx, query, "Google Developers", "UC-lHJZR3Gqxm24_Vd_AJ5Yw", createdAt).Scan(&insertedID)
@@ -70,7 +71,7 @@ func (suite *ChannelRepoTestSuite) TestGetChannel() {
 
 	actualChannel, ok, err := suite.repository.GetChannel(ctx, insertedID)
 	require.NoError(t, err)
-	
+
 	assert.True(t, ok)
 	assert.Equal(t, insertedID, actualChannel.YoutubeChannelId)
 	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
@@ -84,7 +85,7 @@ func (suite *ChannelRepoTestSuite) TestGetChannelNotFound() {
 
 	actualChannel, ok, err := suite.repository.GetChannel(ctx, 1234789)
 	assert.Nil(t, err)
-	assert.Nil(t, actualChannel)
+	assert.Equal(t, YoutubeChannel{}, actualChannel)
 	assert.False(t, ok)
 }
 
@@ -104,7 +105,7 @@ func (suite *ChannelRepoTestSuite) TestGetChannelByExternalId() {
 		$2,
 		$3
 	) RETURNING youtube_channel_id`
-	
+
 	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
 	var insertedID int64
 	err := suite.tx.QueryRow(ctx, query, "Google Developers", "UC-lHJZR3Gqxm24_Vd_AJ5Yw", createdAt).Scan(&insertedID)
@@ -112,7 +113,7 @@ func (suite *ChannelRepoTestSuite) TestGetChannelByExternalId() {
 
 	actualChannel, ok, err := suite.repository.getChannelByExternalId(ctx, tx, "UC-lHJZR3Gqxm24_Vd_AJ5Yw")
 	require.NoError(t, err)
-	
+
 	assert.True(t, ok)
 	assert.Equal(t, insertedID, actualChannel.YoutubeChannelId)
 	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
@@ -126,7 +127,7 @@ func (suite *ChannelRepoTestSuite) TestGetChannelByExternalIdNotFound() {
 	tx := suite.tx
 
 	actualChannel, ok, err := suite.repository.getChannelByExternalId(ctx, tx, "UC-lHJZR3Gqxm24_Vd_AJ5Yw")
-	
+
 	assert.NoError(t, err)
 	assert.Equal(t, YoutubeChannel{}, actualChannel)
 	assert.False(t, ok)

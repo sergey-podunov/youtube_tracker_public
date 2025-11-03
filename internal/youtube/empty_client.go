@@ -11,6 +11,6 @@ func (e *EmptyClient) GetChannelId(channelName string) (string, error) {
 	return "", ErrUnimplemented
 }
 
-func (e *EmptyClient) GetChannelData(channelID string) (*ChannelData, error) {
-	return nil, ErrUnimplemented
+func (e *EmptyClient) GetChannelData(channelID string) (ChannelData, error) {
+	return ChannelData{}, ErrUnimplemented
 }

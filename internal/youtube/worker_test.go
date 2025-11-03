@@ -33,14 +33,14 @@ func (suite *StatisticsWorkerTestSuite) SetupTest() {
 func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
 	ctx := context.Background()
 
-	suite.mockRepository.On("GetChannel", ctx, int64(123456789)).Return(&stats.YoutubeChannel{
+	suite.mockRepository.On("GetChannel", ctx, int64(123456789)).Return(stats.YoutubeChannel{
 		YoutubeChannelId: int64(123456789),
 		ExternalID:       "3263yw",
 		Name:             "Google Dev",
 		CreatedAt:        time.Time{},
 	}, true, nil)
 
-	suite.mockClient.On("GetChannelData", "3263yw").Return(&youtube.ChannelData{
+	suite.mockClient.On("GetChannelData", "3263yw").Return(youtube.ChannelData{
 		ChannelID:        "3263yw",
 		SubscribersCount: 63362,
 	}, nil)
@@ -48,7 +48,7 @@ func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
 	suite.mockRepository.On("StoreSubscriptionsCount", ctx, mock.MatchedBy(func(channelStats stats.YoutubeChannelStats) bool {
 		return channelStats.YoutubeChannelID == int64(123456789) && channelStats.SubscribersCount == 63362
 	})).Return(
-		&stats.YoutubeChannelStats{
+		stats.YoutubeChannelStats{
 			YoutubeChannelStatID: int64(111),
 			YoutubeChannelID:     int64(123456789),
 			SubscribersCount:     63362,
@@ -67,7 +67,7 @@ func (suite *StatisticsWorkerTestSuite) TestGetChannelStatsError() {
 
 	expectedError := fmt.Errorf("database error")
 
-	suite.mockRepository.On("GetChannel", ctx, mock.Anything).Return(nil, false, expectedError)
+	suite.mockRepository.On("GetChannel", ctx, mock.Anything).Return(stats.YoutubeChannel{}, false, expectedError)
 
 	err := suite.worker.GetChannelStats(channelID)
 	suite.NotNil(err)

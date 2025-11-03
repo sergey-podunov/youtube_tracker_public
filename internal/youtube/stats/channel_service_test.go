@@ -22,7 +22,8 @@ func TestYoutubeChannelService_GetChannelStat(t *testing.T) {
 	tests := []testCase{
 		{
 			"error", func(t *testing.T, mockInternalRepository *internalMockChannelRepository, service ChannelService) {
-				mockInternalRepository.On("getChannel", ctx, mock.Anything, int64(84374)).Return(nil, false, errors.New("some error"))
+				mockInternalRepository.On("getChannel", ctx, mock.Anything, int64(84374)).
+					Return(YoutubeChannel{}, false, errors.New("some error"))
 
 				channelStats, ok, err := service.GetChannelStats(ctx, 84374, nil, nil)
 				assert.Error(t, err)
@@ -34,7 +35,8 @@ func TestYoutubeChannelService_GetChannelStat(t *testing.T) {
 		},
 		{
 			"no channel", func(t *testing.T, mockInternalRepository *internalMockChannelRepository, service ChannelService) {
-				mockInternalRepository.On("getChannel", ctx, mock.Anything, int64(84374)).Return(nil, false, nil)
+				mockInternalRepository.On("getChannel", ctx, mock.Anything, int64(84374)).
+					Return(YoutubeChannel{}, false, nil)
 
 				channelStats, ok, err := service.GetChannelStats(ctx, 84374, nil, nil)
 				assert.NoError(t, err)
@@ -46,7 +48,7 @@ func TestYoutubeChannelService_GetChannelStat(t *testing.T) {
 		},
 		{
 			"empty db", func(t *testing.T, mockInternalRepository *internalMockChannelRepository, service ChannelService) {
-				mockInternalRepository.On("getChannel", ctx, mock.Anything, int64(84374)).Return(&YoutubeChannel{
+				mockInternalRepository.On("getChannel", ctx, mock.Anything, int64(84374)).Return(YoutubeChannel{
 					YoutubeChannelId: int64(84374),
 					ExternalID:       "3263yw",
 					Name:             "Some Channel",
@@ -66,7 +68,7 @@ func TestYoutubeChannelService_GetChannelStat(t *testing.T) {
 		},
 		{
 			"statistics exists", func(t *testing.T, mockInternalRepository *internalMockChannelRepository, service ChannelService) {
-				mockInternalRepository.On("getChannel", ctx, mock.Anything, int64(84374)).Return(&YoutubeChannel{
+				mockInternalRepository.On("getChannel", ctx, mock.Anything, int64(84374)).Return(YoutubeChannel{
 					YoutubeChannelId: int64(84374),
 					ExternalID:       "3263yw",
 					Name:             "Some Channel",

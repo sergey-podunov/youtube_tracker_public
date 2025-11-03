@@ -17,23 +17,23 @@ type MockChannelRepository struct {
 	mock.Mock
 }
 
-func (r *MockChannelRepository) GetChannel(ctx context.Context, youtubeChannelId int64) (*YoutubeChannel, bool, error) {
+func (r *MockChannelRepository) GetChannel(ctx context.Context, youtubeChannelId int64) (YoutubeChannel, bool, error) {
 	args := r.Called(ctx, youtubeChannelId)
 
-	var ch *YoutubeChannel
+	var ch YoutubeChannel
 	if args.Get(0) != nil {
-		ch = args.Get(0).(*YoutubeChannel)
+		ch = args.Get(0).(YoutubeChannel)
 	}
 
 	return ch, args.Get(1).(bool), args.Error(2)
 }
 
-func (r *MockChannelRepository) StoreSubscriptionsCount(ctx context.Context, channelStats YoutubeChannelStats) (*YoutubeChannelStats, error) {
+func (r *MockChannelRepository) StoreSubscriptionsCount(ctx context.Context, channelStats YoutubeChannelStats) (YoutubeChannelStats, error) {
 	args := r.Called(ctx, channelStats)
 
-	var cs *YoutubeChannelStats
+	var cs YoutubeChannelStats
 	if args.Get(0) != nil {
-		cs = args.Get(0).(*YoutubeChannelStats)
+		cs = args.Get(0).(YoutubeChannelStats)
 	}
 
 	return cs, args.Error(1)
@@ -60,12 +60,12 @@ func (r *internalMockChannelRepository) createChannel(ctx context.Context, q hel
 	return args.Get(0).(YoutubeChannel), args.Error(1)
 }
 
-func (r *internalMockChannelRepository) getChannel(ctx context.Context, q helpers.Querier, channelID int64) (*YoutubeChannel, bool, error) {
+func (r *internalMockChannelRepository) getChannel(ctx context.Context, q helpers.Querier, channelID int64) (YoutubeChannel, bool, error) {
 	args := r.Called(ctx, q, channelID)
 
-	var out *YoutubeChannel
+	var out YoutubeChannel
 	if args.Get(0) != nil {
-		out = args.Get(0).(*YoutubeChannel)
+		out = args.Get(0).(YoutubeChannel)
 	}
 
 	return out, args.Get(1).(bool), args.Error(2)

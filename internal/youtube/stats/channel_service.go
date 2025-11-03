@@ -31,7 +31,7 @@ func NewYoutubeChannelService(db helpers.TxController, repository internalChanne
 	}
 }
 
-func (s YoutubeChannelService) GetChannelStats(ctx context.Context, ID int64, from *time.Time, to *time.Time) (YoutubeChannelStatsInfo, bool, error) {
+func (s *YoutubeChannelService) GetChannelStats(ctx context.Context, ID int64, from *time.Time, to *time.Time) (YoutubeChannelStatsInfo, bool, error) {
 	var statsInfo YoutubeChannelStatsInfo
 	var ok bool
 	err := helpers.RunInTx(ctx, s.db, func(ctx context.Context, tx pgx.Tx) error {
@@ -67,7 +67,7 @@ func (s YoutubeChannelService) GetChannelStats(ctx context.Context, ID int64, fr
 	return statsInfo, ok, err
 }
 
-func (s YoutubeChannelService) CreateChannel(ctx context.Context, channel YoutubeChannel) (YoutubeChannel, bool, error) {
+func (s *YoutubeChannelService) CreateChannel(ctx context.Context, channel YoutubeChannel) (YoutubeChannel, bool, error) {
 	var createdYoutubeChannel YoutubeChannel
 	var channelCreated bool
 
