@@ -11,12 +11,12 @@ import (
 
 type MainHTTPHandler struct {
 	api.UnimplementedHandler
-	collector         *youtube.WorkerCollector
+	collector         youtube.StatisticsCollector
 	channelService    stats.ChannelService
 	channelRepository stats.ChannelRepository
 }
 
-func NewHTTPHandler(collector *youtube.WorkerCollector, channelService stats.ChannelService, channelRepository stats.ChannelRepository) *MainHTTPHandler {
+func NewHTTPHandler(collector youtube.StatisticsCollector, channelService stats.ChannelService, channelRepository stats.ChannelRepository) *MainHTTPHandler {
 	return &MainHTTPHandler{
 		collector:         collector,
 		channelService:    channelService,
@@ -36,7 +36,7 @@ func (handler *MainHTTPHandler) YoutubeChannelPost(ctx context.Context, req *api
 		Name:       req.Name,
 	}
 
-	createdChannel, isNew, err := handler.channelRepository.GetOrCreateChannel(ctx, channel)
+	createdChannel, isNew, err := handler.channelService.CreateChannel(ctx, channel)
 	if err != nil {
 		return nil, err
 	}

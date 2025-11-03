@@ -20,7 +20,6 @@ const PoolMaxConnectionLifetime = time.Hour
 const PoolHealthCheckPeriod = time.Minute
 
 type ChannelRepository interface {
-	GetOrCreateChannel(ctx context.Context, channel YoutubeChannel) (*YoutubeChannel, bool, error)
 	GetChannel(ctx context.Context, channelID int64) (*YoutubeChannel, bool, error)
 	GetChannels(ctx context.Context, sinceTime time.Time, count int) ([]YoutubeChannel, error)
 	StoreSubscriptionsCount(ctx context.Context, stats YoutubeChannelStats) (*YoutubeChannelStats, error)
@@ -28,8 +27,10 @@ type ChannelRepository interface {
 
 type internalChannelRepository interface {
 	ChannelRepository
+	createChannel(ctx context.Context, q helpers.Querier, channel YoutubeChannel) (YoutubeChannel, error)
 	getChannel(ctx context.Context, q helpers.Querier, channelID int64) (*YoutubeChannel, bool, error)
 	getChannelStat(ctx context.Context, q helpers.Querier, channelID int64) ([]YoutubeChannelStats, error)
+	getChannelByExternalId(ctx context.Context, q helpers.Querier, externalID string) (YoutubeChannel, bool, error)
 }
 
 type Database interface {
@@ -70,43 +71,7 @@ func NewChannelRepository(ctx context.Context, connStr string) (*YoutubeChannelR
 	}, nil
 }
 
-func (r *YoutubeChannelRepository) GetOrCreateChannel(ctx context.Context, channel YoutubeChannel) (*YoutubeChannel, bool, error) {
-	var channelFromRepo *YoutubeChannel
-	var isNew bool
-	err := helpers.RunInTx(ctx, r.db, func(ctx context.Context, tx pgx.Tx) error {
-		channel, newStatus, err := r.getOrCreateChannel(ctx, tx, channel)
-		if err != nil {
-			return err
-		}
-		channelFromRepo = channel
-		isNew = newStatus
-		return nil
-	})
-
-	return channelFromRepo, isNew, err
-}
-
-func (r *YoutubeChannelRepository) getOrCreateChannel(ctx context.Context, q helpers.Querier, channel YoutubeChannel) (*YoutubeChannel, bool, error) {
-	oldChannel, err := r.getChannelByExternalId(ctx, q, channel.ExternalID)
-
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			newChannel, err := r.createChannel(ctx, q, channel)
-			if err != nil {
-				log.Printf("Failed to insert channel: %v\n", err)
-				return nil, false, fmt.Errorf("failed to insert channel: %w", err)
-			}
-
-			return newChannel, true, nil
-		}
-
-		return nil, false, fmt.Errorf("failed to get channel by external ID: %w", err)
-	}
-
-	return oldChannel, false, nil
-}
-
-func (r *YoutubeChannelRepository) createChannel(ctx context.Context, q helpers.Querier, channel YoutubeChannel) (*YoutubeChannel, error) {
+func (r *YoutubeChannelRepository) createChannel(ctx context.Context, q helpers.Querier, channel YoutubeChannel) (YoutubeChannel, error) {
 	query := `
 		INSERT INTO youtube_channel (
 			channel_name, 
@@ -126,12 +91,12 @@ func (r *YoutubeChannelRepository) createChannel(ctx context.Context, q helpers.
 	var insertedID int64
 	if err := q.QueryRow(ctx, query, channel.Name, channel.ExternalID, channel.CreatedAt).Scan(&insertedID); err != nil {
 		log.Printf("Failed to insert channel: %v\n", err)
-		return nil, err
+		return YoutubeChannel{}, err
 	}
 
 	channel.YoutubeChannelId = insertedID
 
-	return &channel, nil
+	return channel, nil
 }
 
 func (r *YoutubeChannelRepository) GetChannel(ctx context.Context, channelID int64) (*YoutubeChannel, bool, error) {
@@ -164,7 +129,7 @@ func (r *YoutubeChannelRepository) getChannel(ctx context.Context, q helpers.Que
 	return &channel, true, nil
 }
 
-func (r *YoutubeChannelRepository) getChannelByExternalId(ctx context.Context, q helpers.Querier, externalID string) (*YoutubeChannel, error) {
+func (r *YoutubeChannelRepository) getChannelByExternalId(ctx context.Context, q helpers.Querier, externalID string) (YoutubeChannel, bool, error) {
 	query := `
 		SELECT 
 			youtube_channel_id, 
@@ -177,12 +142,17 @@ func (r *YoutubeChannelRepository) getChannelByExternalId(ctx context.Context, q
 			external_id = $1`
 
 	var channel YoutubeChannel
-	if err := q.QueryRow(ctx, query, externalID).
-		Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalID, &channel.CreatedAt); err != nil {
-		return nil, err
+	err := q.QueryRow(ctx, query, externalID).
+		Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalID, &channel.CreatedAt)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return YoutubeChannel{}, false, nil
+		}
+		return YoutubeChannel{}, false, err
 	}
 
-	return &channel, nil
+	return channel, true, nil
 }
 
 func (r *YoutubeChannelRepository) StoreSubscriptionsCount(ctx context.Context, stats YoutubeChannelStats) (*YoutubeChannelStats, error) {

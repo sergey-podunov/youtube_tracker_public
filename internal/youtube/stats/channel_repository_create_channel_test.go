@@ -21,7 +21,7 @@ func TestYoutubeChannelRepository_CreateChannel(t *testing.T) {
 	tests := []testCase{
 		{
 			"empty db", func(t *testing.T, db helpers.Querier, repository *YoutubeChannelRepository) {
-				channel, isNew, err := repository.getOrCreateChannel(ctx,
+				channel, err := repository.createChannel(ctx,
 					db,
 					YoutubeChannel{
 						ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
@@ -29,7 +29,6 @@ func TestYoutubeChannelRepository_CreateChannel(t *testing.T) {
 					})
 				require.NoError(t, err)
 				require.NotNil(t, channel.YoutubeChannelId)
-				assert.True(t, isNew)
 
 				var actualChannel YoutubeChannel
 				err =
@@ -49,17 +48,15 @@ func TestYoutubeChannelRepository_CreateChannel(t *testing.T) {
 					ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
 					Name:       "Google Developers",
 				}
-				_, _, err := repository.getOrCreateChannel(ctx, db, channel)
+				existingChannel, err := repository.createChannel(ctx, db, channel)
 				require.NoError(t, err)
 
-				existingChannel, isNew, err := repository.getOrCreateChannel(ctx, db, channel)
+				newChannel, err := repository.createChannel(ctx, db, channel)
 				assert.Nil(t, err)
-				assert.False(t, isNew)
 
-				assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", existingChannel.ExternalID)
-				assert.Equal(t, "Google Developers", existingChannel.Name)
-				assert.NotNil(t, existingChannel.YoutubeChannelId)
-				assert.False(t, existingChannel.CreatedAt.IsZero())
+				assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", newChannel.ExternalID)
+				assert.Equal(t, "Google Developers", newChannel.Name)
+				assert.NotEqual(t, existingChannel.YoutubeChannelId, newChannel.YoutubeChannelId)
 			},
 		},
 	}

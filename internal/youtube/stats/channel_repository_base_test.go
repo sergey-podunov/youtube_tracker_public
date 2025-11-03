@@ -11,7 +11,7 @@ import (
 
 type BaseChannelRepoTestSuite struct {
 	suite.Suite
-	repository *YoutubeChannelRepository
+	repository internalChannelRepository
 	ctx        context.Context
 	conn       *pgx.Conn // The main connection for the suite
 	tx         pgx.Tx    // The transaction for the current test
@@ -46,7 +46,6 @@ func (suite *BaseChannelRepoTestSuite) SetupTest() {
 
 	suite.tx = tx
 
-	// Reset repository with transaction for each test
 	suite.repository = &YoutubeChannelRepository{db: tx}
 }
 

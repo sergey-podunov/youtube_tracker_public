@@ -55,8 +55,8 @@ type WorkerCollector struct {
 	channelCollectLimit int
 }
 
-func NewStatisticsCollector(channelRepo stats.ChannelRepository, workers []Worker, channelLimit int) WorkerCollector {
-	return WorkerCollector{
+func NewStatisticsCollector(channelRepo stats.ChannelRepository, workers []Worker, channelLimit int) *WorkerCollector {
+	return &WorkerCollector{
 		channelRepo:         channelRepo,
 		workers:             workers,
 		jobs:                make(map[int64]*job),
