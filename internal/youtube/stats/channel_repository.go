@@ -3,21 +3,12 @@ package stats
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
-	"os"
 	"time"
 	"youtube_tracker/internal/helpers"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-const PoolMaxSize = 10
-const PoolMinSize = 2
-const PoolMaxConnectionIdleTime = 30 * time.Minute
-const PoolMaxConnectionLifetime = time.Hour
-const PoolHealthCheckPeriod = time.Minute
 
 type ChannelRepository interface {
 	GetChannel(ctx context.Context, channelID int64) (YoutubeChannel, bool, error)
@@ -35,40 +26,14 @@ type internalChannelRepository interface {
 
 type Database interface {
 	helpers.Querier
-	helpers.TxController
 }
 
 type YoutubeChannelRepository struct {
 	db Database
 }
 
-func NewChannelRepository(ctx context.Context, connStr string) (*YoutubeChannelRepository, error) {
-	config, err := pgxpool.ParseConfig(connStr)
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Unable to parse connection string: %v\n", err)
-		return nil, err
-	}
-
-	config.MaxConns = PoolMaxSize
-	config.MinConns = PoolMinSize
-	config.MaxConnLifetime = PoolMaxConnectionLifetime
-	config.MaxConnIdleTime = PoolMaxConnectionIdleTime
-	config.HealthCheckPeriod = PoolHealthCheckPeriod
-
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
-		return nil, err
-	}
-
-	if err = pool.Ping(ctx); err != nil {
-		pool.Close()
-		return nil, err
-	}
-
-	return &YoutubeChannelRepository{
-		db: pool,
-	}, nil
+func NewChannelRepository(db Database) *YoutubeChannelRepository {
+	return &YoutubeChannelRepository{db: db}
 }
 
 func (r *YoutubeChannelRepository) createChannel(ctx context.Context, q helpers.Querier, channel YoutubeChannel) (YoutubeChannel, error) {
