@@ -19,3 +19,20 @@ Content-Type: application/json
 ### get channel by id
 GET {{url}}/youtube/channel/{{channel_id}}
 Accept: application/json
+
+### get channel statistics
+GET {{url}}/youtube/channel/{{channel_id}}/statistics
+Accept: application/json
+
+### schedule statistics job
+POST {{url}}/schedule
+Accept: application/json
+
+> {%
+    const responseBody = response.body;
+    client.global.set("job_path", responseBody.statusPath);
+%}
+
+### schedule job status
+GET {{url}}{{job_path}}
+Accept: application/json
