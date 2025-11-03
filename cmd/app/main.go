@@ -36,10 +36,7 @@ func NewApp(ctx context.Context, host string, port int, dbURL string, authDir st
 		return nil, err
 	}
 
-	channelRepository, err := stats.NewChannelRepository(ctx, dbURL)
-	if err != nil {
-		return nil, err
-	}
+	channelRepository := stats.NewChannelRepository(dbPool)
 
 	channelService := stats.NewYoutubeChannelService(dbPool, channelRepository)
 
