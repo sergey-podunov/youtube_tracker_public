@@ -61,8 +61,8 @@ func (suite *ChannelRepoTestSuite) TestGetChannel() {
 		$2,
 		$3
 	)
-	RETURNING youtube_channel_id
-`
+	RETURNING youtube_channel_id`
+	
 	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
 	var insertedID int64
 	err := suite.tx.QueryRow(ctx, query, "Google Developers", "UC-lHJZR3Gqxm24_Vd_AJ5Yw", createdAt).Scan(&insertedID)
@@ -71,7 +71,7 @@ func (suite *ChannelRepoTestSuite) TestGetChannel() {
 	actualChannel, ok, err := suite.repository.GetChannel(ctx, insertedID)
 	require.NoError(t, err)
 	
-	assert.True(suite.T(), ok)
+	assert.True(t, ok)
 	assert.Equal(t, insertedID, actualChannel.YoutubeChannelId)
 	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
 	assert.Equal(t, "Google Developers", actualChannel.Name)
@@ -85,7 +85,51 @@ func (suite *ChannelRepoTestSuite) TestGetChannelNotFound() {
 	actualChannel, ok, err := suite.repository.GetChannel(ctx, 1234789)
 	assert.Nil(t, err)
 	assert.Nil(t, actualChannel)
-	assert.False(suite.T(), ok)
+	assert.False(t, ok)
+}
+
+func (suite *ChannelRepoTestSuite) TestGetChannelByExternalId() {
+	t := suite.T()
+	ctx := suite.ctx
+	tx := suite.tx
+
+	query := `
+	INSERT INTO youtube_channel (
+		channel_name,
+		external_id,
+		created_at
+	)
+	VALUES (
+		$1,
+		$2,
+		$3
+	) RETURNING youtube_channel_id`
+	
+	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
+	var insertedID int64
+	err := suite.tx.QueryRow(ctx, query, "Google Developers", "UC-lHJZR3Gqxm24_Vd_AJ5Yw", createdAt).Scan(&insertedID)
+	require.NoError(t, err)
+
+	actualChannel, ok, err := suite.repository.getChannelByExternalId(ctx, tx, "UC-lHJZR3Gqxm24_Vd_AJ5Yw")
+	require.NoError(t, err)
+	
+	assert.True(t, ok)
+	assert.Equal(t, insertedID, actualChannel.YoutubeChannelId)
+	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
+	assert.Equal(t, "Google Developers", actualChannel.Name)
+	assert.Equal(t, createdAt, actualChannel.CreatedAt)
+}
+
+func (suite *ChannelRepoTestSuite) TestGetChannelByExternalIdNotFound() {
+	t := suite.T()
+	ctx := suite.ctx
+	tx := suite.tx
+
+	actualChannel, ok, err := suite.repository.getChannelByExternalId(ctx, tx, "UC-lHJZR3Gqxm24_Vd_AJ5Yw")
+	
+	assert.NoError(t, err)
+	assert.Equal(t, YoutubeChannel{}, actualChannel)
+	assert.False(t, ok)
 }
 
 func (suite *ChannelRepoTestSuite) TestStoreSubscriptionsCount() {

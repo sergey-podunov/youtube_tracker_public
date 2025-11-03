@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 	"youtube_tracker/internal/helpers"
-	
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/mock"
@@ -13,15 +13,7 @@ import (
 
 var errUnimplemented = errors.New("unimplemented")
 
-type EmptyChannelRepository struct {
-}
-
-func (r *EmptyChannelRepository) GetOrCreateChannel(ctx context.Context, channel YoutubeChannel) (*YoutubeChannel, bool, error) {
-	return nil, false, errUnimplemented
-}
-
 type MockChannelRepository struct {
-	EmptyChannelRepository
 	mock.Mock
 }
 
@@ -62,6 +54,12 @@ type internalMockChannelRepository struct {
 	MockChannelRepository
 }
 
+func (r *internalMockChannelRepository) createChannel(ctx context.Context, q helpers.Querier, channel YoutubeChannel) (YoutubeChannel, error) {
+	args := r.Called(ctx, q, channel)
+
+	return args.Get(0).(YoutubeChannel), args.Error(1)
+}
+
 func (r *internalMockChannelRepository) getChannel(ctx context.Context, q helpers.Querier, channelID int64) (*YoutubeChannel, bool, error) {
 	args := r.Called(ctx, q, channelID)
 
@@ -82,6 +80,17 @@ func (r *internalMockChannelRepository) getChannelStat(ctx context.Context, q he
 	}
 
 	return out, args.Error(1)
+}
+
+func (r *internalMockChannelRepository) getChannelByExternalId(ctx context.Context, q helpers.Querier, externalID string) (YoutubeChannel, bool, error) {
+	args := r.Called(ctx, q, externalID)
+
+	var out YoutubeChannel
+	if args.Get(0) != nil {
+		out = args.Get(0).(YoutubeChannel)
+	}
+
+	return out, args.Get(1).(bool), args.Error(2)
 }
 
 type EmptyTx struct {

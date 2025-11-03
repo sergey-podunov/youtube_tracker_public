@@ -61,7 +61,7 @@ func NewApp(ctx context.Context, host string, port int, dbURL string, authDir st
 	}
 	
 	collector := youtube.NewStatisticsCollector(channelRepository, workers, 10)
-	httpHandler := mainHanler.NewHTTPHandler(&collector, channelService, channelRepository)
+	httpHandler := mainHanler.NewHTTPHandler(collector, channelService, channelRepository)
 	
 	srv, err := api.NewServer(httpHandler)
 	if err != nil {

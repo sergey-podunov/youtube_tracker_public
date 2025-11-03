@@ -31,7 +31,7 @@ func (suite *StatisticsCollectorTestSuite) SetupTest() {
 	workers := []youtube.Worker{suite.mockWorker}
 	
 	collector := youtube.NewStatisticsCollector(suite.mockRepository, workers, 5)
-	suite.collector = &collector
+	suite.collector = collector
 }
 
 func (suite *StatisticsCollectorTestSuite) TestStatisticsCollector() {
