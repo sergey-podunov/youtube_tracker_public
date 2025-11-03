@@ -145,8 +145,9 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, respCode, "Response code: %s", respStatus)
 	})
 
-	t.Run("Test statistics job schedule", func(t *testing.T) {
-		_, _ = executePost(t, url+"/youtube/channel", &api.YoutubeChannel{Name: "Test Channel", YoutubeID: "TestYoutubeID"}, nil)
+	t.Run("Test youtube channel statistics", func(t *testing.T) {
+		channelPostResp := &api.YoutubeChannel{}
+		_, _ = executePost(t, url+"/youtube/channel", &api.YoutubeChannel{Name: "Test Channel", YoutubeID: "TestYoutubeID"}, channelPostResp)
 
 		generationStartedResp := api.StatGenerationStarted{}
 		respCode, respStatus := executePost(t, url+"/schedule", nil, &generationStartedResp)
@@ -165,6 +166,26 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		assert.GreaterOrEqual(t, jobStatusResp.Total.Value, int32(1))
 		assert.GreaterOrEqual(t, jobStatusResp.Ready.Value, int32(1))
 		assert.GreaterOrEqual(t, jobStatusResp.Error.Value, int32(0))
+
+		channelStatisticsResp := api.YoutubeChannelStatistics{}
+		respCode, respStatus = executeGet(t,
+			url+"/youtube/channel/"+conv.Int64ToString(channelPostResp.ID.Value)+"/statistics", &channelStatisticsResp)
+
+		assert.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
+		assert.Equal(t, "TestYoutubeID", channelStatisticsResp.YoutubeID.Value)
+		assert.Equal(t, channelPostResp.ID.Value, channelStatisticsResp.ID)
+		assert.Equal(t, 1, len(channelStatisticsResp.Statistics))
+
+		channelStatistic := channelStatisticsResp.Statistics[0]
+
+		assert.Equal(t, int64(151617), channelStatistic.Subscribers)
+		assert.False(t, channelStatistic.Date.IsZero())
+	})
+	
+	t.Run("Test /youtube/channel statistics not found", func(t *testing.T) {
+		respCode, respStatus := executeGet(t, url+"/youtube/channel/123456/statistics", nil)
+
+		assert.Equal(t, http.StatusNotFound, respCode, "Response code: %s", respStatus)
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

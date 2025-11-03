@@ -7,25 +7,31 @@ import (
 	"time"
 	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
-
+	"youtube_tracker/internal/youtube/test_utils"
+	
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
+func TestWorkerCollectorSuite(t *testing.T) {
+	suite.Run(t, new(StatisticsCollectorTestSuite))
+}
+
 type StatisticsCollectorTestSuite struct {
 	suite.Suite
 	collector      youtube.StatisticsCollector
-	mockWorker     *MockStatisticsWorker
-	mockRepository *MockChannelRepository
+	mockWorker     *test_utils.MockStatisticsWorker
+	mockRepository *stats.MockChannelRepository
 }
 
 func (suite *StatisticsCollectorTestSuite) SetupTest() {
-	suite.mockRepository = new(MockChannelRepository)
-	suite.mockWorker = new(MockStatisticsWorker)
+	suite.mockRepository = new(stats.MockChannelRepository)
+	suite.mockWorker = new(test_utils.MockStatisticsWorker)
 	workers := []youtube.Worker{suite.mockWorker}
-
-	suite.collector = youtube.NewStatisticsCollector(suite.mockRepository, workers, 5)
+	
+	collector := youtube.NewStatisticsCollector(suite.mockRepository, workers, 5)
+	suite.collector = &collector
 }
 
 func (suite *StatisticsCollectorTestSuite) TestStatisticsCollector() {
@@ -137,8 +143,4 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollectorRunJobError() 
 
 	suite.mockRepository.AssertExpectations(suite.T())
 	suite.mockWorker.AssertExpectations(suite.T())
-}
-
-func TestWorkerCollectorSuite(t *testing.T) {
-	suite.Run(t, new(StatisticsCollectorTestSuite))
 }

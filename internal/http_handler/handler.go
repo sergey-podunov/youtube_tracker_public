@@ -2,8 +2,6 @@ package http_handler
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 	"youtube_tracker/internal/api"
@@ -14,12 +12,14 @@ import (
 type MainHTTPHandler struct {
 	api.UnimplementedHandler
 	collector         *youtube.WorkerCollector
-	channelRepository *stats.YoutubeChannelRepository
+	channelService    stats.ChannelService
+	channelRepository stats.ChannelRepository
 }
 
-func NewHTTPHandler(collector *youtube.WorkerCollector, channelRepository *stats.YoutubeChannelRepository) *MainHTTPHandler {
+func NewHTTPHandler(collector *youtube.WorkerCollector, channelService stats.ChannelService, channelRepository stats.ChannelRepository) *MainHTTPHandler {
 	return &MainHTTPHandler{
 		collector:         collector,
+		channelService:    channelService,
 		channelRepository: channelRepository,
 	}
 }
@@ -59,13 +59,13 @@ func (handler *MainHTTPHandler) YoutubeChannelPost(ctx context.Context, req *api
 }
 
 func (handler *MainHTTPHandler) YoutubeChannelIDGet(ctx context.Context, params api.YoutubeChannelIDGetParams) (api.YoutubeChannelIDGetRes, error) {
-	channel, err := handler.channelRepository.GetChannel(ctx, params.ID)
+	channel, ok, err := handler.channelRepository.GetChannel(ctx, params.ID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return &api.YoutubeChannelIDGetNotFound{}, nil
-		}
-
 		return nil, err
+	}
+
+	if !ok {
+		return &api.YoutubeChannelIDGetNotFound{}, nil
 	}
 
 	return &api.YoutubeChannel{
@@ -106,5 +106,33 @@ func (handler *MainHTTPHandler) ScheduleJobIDGet(ctx context.Context, params api
 		Total:  api.NewOptInt32(job.Total),
 		Ready:  api.NewOptInt32(job.Ready),
 		Error:  api.NewOptInt32(job.Error),
+	}, nil
+}
+
+func (handler *MainHTTPHandler) YoutubeChannelIDStatisticsGet(
+	ctx context.Context, params api.YoutubeChannelIDStatisticsGetParams) (api.YoutubeChannelIDStatisticsGetRes, error) {
+	youtubeChannelID := params.ID
+
+	channelStatsInfo, channelFound, err := handler.channelService.GetChannelStats(ctx, youtubeChannelID, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if !channelFound {
+		return &api.YoutubeChannelIDStatisticsGetNotFound{}, nil
+	}
+
+	statisticsItems := make([]api.YoutubeChannelStatisticsStatisticsItem, len(channelStatsInfo.Statistics))
+	for i, statInfo := range channelStatsInfo.Statistics {
+		statisticsItems[i] = api.YoutubeChannelStatisticsStatisticsItem{
+			Date:        statInfo.CreatedAt,
+			Subscribers: statInfo.SubscribersCount,
+		}
+	}
+
+	return &api.YoutubeChannelStatistics{
+		ID:         channelStatsInfo.ID,
+		YoutubeID:  api.NewOptString(channelStatsInfo.ChannelID),
+		Statistics: statisticsItems,
 	}, nil
 }

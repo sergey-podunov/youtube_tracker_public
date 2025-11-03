@@ -35,7 +35,7 @@ func (suite *ChannelRepoGetChannelsTestSuite) TestGetChannels_testReturnObject()
 	actualChannels, err := suite.repository.GetChannels(ctx, helpers.ParseTime("2225-10-15T00:00:00Z"), 10)
 	require.NoError(t, err)
 
-	assert.ElementsMatch(t, toView(expectedChannels), toView(actualChannels), "Returned channels do not match")
+	assert.ElementsMatch(t, toYoutubeChannelView(expectedChannels), toYoutubeChannelView(actualChannels), "Returned channels do not match")
 }
 
 type channelView struct {
@@ -45,7 +45,7 @@ type channelView struct {
 	CheckedAt  *time.Time
 }
 
-func toView(in []YoutubeChannel) []channelView {
+func toYoutubeChannelView(in []YoutubeChannel) []channelView {
 	out := make([]channelView, len(in))
 	for i, c := range in {
 		out[i] = channelView{
@@ -114,14 +114,14 @@ func (suite *ChannelRepoGetChannelsTestSuite) TestGetChannels() {
 			t := suite.T()
 
 			tx, err := suite.conn.Begin(ctx)
-			require.NoError(t, err)
 			defer func() {
 				if err := tx.Rollback(ctx); err != nil {
 					t.Logf("Error rolling back transaction for subtest %s: %v", tc.name, err)
 				}
 			}()
+			require.NoError(t, err)
 
-			subtestRepo := &YoutubeChannelRepository{querier: tx}
+			subtestRepo := &YoutubeChannelRepository{db: tx}
 
 			if err := insertChannels(ctx, tx, tc.channelsBeforeTest); err != nil {
 				t.Fatalf("Error inserting channels for subtest %s: %v", tc.name, err)

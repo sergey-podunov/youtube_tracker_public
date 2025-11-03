@@ -7,21 +7,26 @@ import (
 	"time"
 	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
-
+	"youtube_tracker/internal/youtube/test_utils"
+	
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
+func TestStatisticsWorkerTestSuite(t *testing.T) {
+	suite.Run(t, new(StatisticsWorkerTestSuite))
+}
+
 type StatisticsWorkerTestSuite struct {
 	suite.Suite
 	worker         *youtube.StatisticsWorker
-	mockRepository *MockChannelRepository
-	mockClient     *MockYoutubeClient
+	mockRepository *stats.MockChannelRepository
+	mockClient     *test_utils.MockYoutubeClient
 }
 
 func (suite *StatisticsWorkerTestSuite) SetupTest() {
-	suite.mockRepository = new(MockChannelRepository)
-	suite.mockClient = new(MockYoutubeClient)
+	suite.mockRepository = new(stats.MockChannelRepository)
+	suite.mockClient = new(test_utils.MockYoutubeClient)
 	suite.worker = youtube.NewStatisticsWorker(suite.mockRepository, suite.mockClient)
 }
 
@@ -33,7 +38,7 @@ func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
 		ExternalID:       "3263yw",
 		Name:             "Google Dev",
 		CreatedAt:        time.Time{},
-	}, nil)
+	}, true, nil)
 
 	suite.mockClient.On("GetChannelData", "3263yw").Return(&youtube.ChannelData{
 		ChannelID:        "3263yw",
@@ -62,15 +67,11 @@ func (suite *StatisticsWorkerTestSuite) TestGetChannelStatsError() {
 
 	expectedError := fmt.Errorf("database error")
 
-	suite.mockRepository.On("GetChannel", ctx, mock.Anything).Return(nil, expectedError)
+	suite.mockRepository.On("GetChannel", ctx, mock.Anything).Return(nil, false, expectedError)
 
 	err := suite.worker.GetChannelStats(channelID)
 	suite.NotNil(err)
 
 	suite.mockRepository.AssertExpectations(suite.T())
 	suite.mockClient.AssertNotCalled(suite.T(), "GetChannelData", mock.Anything)
-}
-
-func TestStatisticsWorkerTestSuite(t *testing.T) {
-	suite.Run(t, new(StatisticsWorkerTestSuite))
 }
