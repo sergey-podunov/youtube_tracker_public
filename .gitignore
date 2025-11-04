@@ -3,7 +3,6 @@
 auth-cache.json
 .idea
 pkg
-go.sum
 /config.json
 /k8s/000-postgres-secrets.yml
 api
