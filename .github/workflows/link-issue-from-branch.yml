@@ -1,0 +1,49 @@
+name: Link issue from branch
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  link-issue:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract issue number from branch name
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          echo "Branch: $BRANCH_NAME"
+          # Matches issue-123-additional-info or 123-additional-info
+          if [[ "$BRANCH_NAME" =~ ^(issue-)?([0-9]+)- ]]; then
+            ISSUE_NUMBER="${BASH_REMATCH[2]}"
+            echo "Found issue number: $ISSUE_NUMBER"
+            echo "ISSUE_NUMBER=$ISSUE_NUMBER" >> $GITHUB_ENV
+          else
+            echo "No issue number found, skipping."
+          fi
+
+      - name: Add 'Fixes #<n>' to PR body
+        if: env.ISSUE_NUMBER != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = process.env.ISSUE_NUMBER;
+            const pr = context.payload.pull_request;
+            const body = pr.body || "";
+            const linkLine = `Fixes #${issue}`;
+
+            // Avoid duplicates
+            if (body.includes(linkLine)) {
+              core.info(`PR already contains '${linkLine}', nothing to do.`);
+            } else {
+              const newBody = body.length ? body + "\n\n" + linkLine : linkLine;
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                body: newBody,
+              });
+              core.info(`Updated PR body with '${linkLine}'.`);
+            }
