@@ -181,7 +181,7 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		assert.Equal(t, int64(151617), channelStatistic.Subscribers)
 		assert.False(t, channelStatistic.Date.IsZero())
 	})
-	
+
 	t.Run("Test /youtube/channel statistics not found", func(t *testing.T) {
 		respCode, respStatus := executeGet(t, url+"/youtube/channel/123456/statistics", nil)
 
@@ -247,7 +247,7 @@ func createPgContainer(ctx context.Context) *helpers.PostgresContainer {
 }
 
 func createApp(ctx context.Context, host string, port int, dbUrl string) *App {
-	app, err := NewApp(ctx, host, port, dbUrl, "", mockClient)
+	app, err := NewApp(ctx, port, dbUrl, "", mockClient)
 	if err != nil {
 		log.Fatal(err)
 	}

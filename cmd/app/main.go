@@ -19,18 +19,20 @@ import (
 
 const numWorkers = 10
 
-const PoolMaxSize = 10
-const PoolMinSize = 2
-const PoolMaxConnectionIdleTime = 30 * time.Minute
-const PoolMaxConnectionLifetime = time.Hour
-const PoolHealthCheckPeriod = time.Minute
+const (
+	defaultPoolMaxSize               = 10
+	defaultPoolMinSize               = 2
+	defaultPoolMaxConnectionIdleTime = 30 * time.Minute
+	defaultPoolMaxConnectionLifetime = time.Hour
+	defaultPoolHealthCheckPeriod     = time.Minute
+)
 
 type App struct {
 	dbUrl      string
 	httpServer *http.Server
 }
 
-func NewApp(ctx context.Context, host string, port int, dbURL string, authDir string, ytClient youtube.Client) (*App, error) {
+func NewApp(ctx context.Context, port int, dbURL string, authDir string, ytClient youtube.Client) (*App, error) {
 	dbPool, err := createDbPool(ctx, dbURL)
 	if err != nil {
 		return nil, err
@@ -66,7 +68,7 @@ func NewApp(ctx context.Context, host string, port int, dbURL string, authDir st
 	}
 
 	httpServer := &http.Server{
-		Addr:         host + ":" + strconv.Itoa(port),
+		Addr:         ":" + strconv.Itoa(port),
 		Handler:      srv,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -85,11 +87,11 @@ func createDbPool(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
-	config.MaxConns = PoolMaxSize
-	config.MinConns = PoolMinSize
-	config.MaxConnLifetime = PoolMaxConnectionLifetime
-	config.MaxConnIdleTime = PoolMaxConnectionIdleTime
-	config.HealthCheckPeriod = PoolHealthCheckPeriod
+	config.MaxConns = toInt32(getEnv("POOL_MAX_SIZE"), defaultPoolMaxSize)
+	config.MinConns = toInt32(getEnv("POOL_MIN_SIZE"), defaultPoolMinSize)
+	config.MaxConnLifetime = toDuration(getEnv("POOL_MAX_CONN_LIFETIME"), defaultPoolMaxConnectionLifetime)
+	config.MaxConnIdleTime = toDuration(getEnv("POOL_MAX_CONN_IDLE_TIME"), defaultPoolMaxConnectionIdleTime)
+	config.HealthCheckPeriod = toDuration(getEnv("POOL_HEALTH_CHECK_PERIOD"), defaultPoolHealthCheckPeriod)
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
@@ -118,36 +120,54 @@ func (app *App) Stop(ctx context.Context) error {
 	return app.httpServer.Shutdown(ctx)
 }
 
-// getEnv reads an environment variable or returns a default value.
-func getEnv(key, fallback string) string {
+func toInt32(value string, fallback int32) int32 {
+	if len(value) == 0 {
+		return fallback
+	}
+
+	if intValue, err := strconv.ParseInt(value, 10, 32); err == nil {
+		return int32(intValue)
+	}
+
+	return fallback
+}
+
+func toDuration(value string, fallback time.Duration) time.Duration {
+	if len(value) == 0 {
+		return fallback
+	}
+
+	if duration, err := time.ParseDuration(value); err == nil {
+		return duration
+	}
+
+	return fallback
+}
+
+func getEnv(key string) string {
+	return getEnvWithFallback(key, "")
+}
+
+func getEnvWithFallback(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
-
 	return fallback
 }
 
 func main() {
 	ctx := context.Background()
 
-	host := getEnv("APP_HOST", "")
-	portStr := getEnv("APP_PORT", "8080")
-	dbUrl := getEnv("DB_URL", "")
-	authDir := getEnv("AUTH_DIR", "")
+	portStr := getEnvWithFallback("APP_PORT", "8080")
+	dbUrl := getEnvWithFallback("DB_URL", "")
+	authDir := getEnvWithFallback("AUTH_DIR", "")
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		log.Fatalf("Invalid port specified: %v", err)
 	}
 
-	app, err := NewApp(
-		ctx,
-		host,
-		port,
-		dbUrl,
-		authDir,
-		nil,
-	)
+	app, err := NewApp(ctx, port, dbUrl, authDir, nil)
 
 	if err != nil {
 		log.Fatal(err)

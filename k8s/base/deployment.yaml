@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: youtube-tracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: youtube-tracker
+  template:
+    metadata:
+      labels:
+        app: youtube-tracker
+    spec:
+      containers:
+        - name: youtube-tracker
+          image: ghcr.io/sergey-podunov/youtube_tracker:pr-8
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: APP_PORT
+              value: "8080"
+            - name: AUTH_DIR
+              value: "/app/auth"
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret-config
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_DB
+            - name: DB_URL
+              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable"
+            - name: POOL_MAX_SIZE
+              value: "10"
+            - name: POOL_MIN_SIZE
+              value: "2"
+            - name: POOL_MAX_CONN_LIFETIME
+              value: "1h"
+            - name: POOL_MAX_CONN_IDLE_TIME
+              value: "30m"
+            - name: POOL_HEALTH_CHECK_PERIOD
+              value: "1m"
+          volumeMounts:
+            - name: auth-token
+              mountPath: /app/auth
+              readOnly: true
+      imagePullSecrets:
+        - name: ghcr-secret
+      volumes:
+        - name: auth-token
+          secret:
+            secretName: google-auth-token

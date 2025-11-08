@@ -21,8 +21,7 @@ FROM alpine:latest
 
 # Set default environment variables for the running container.
 # These can be overridden at runtime.
-ENV APP_HOST=""
-ENV APP_PORT="8080"
+ENV APP_PORT="8081"
 
 # It is recommended to set DB_URL at runtime for security and flexibility.
 # e.g., using -e DB_URL="your_db_connection_string" in `docker run`.
