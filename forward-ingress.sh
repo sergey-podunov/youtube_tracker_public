@@ -9,4 +9,3 @@ echo ""
 echo "Press Ctrl+C to stop"
 
 kubectl port-forward svc/ingress-nginx-controller $LOCAL_PORT:80 -n ingress-nginx
-#kubectl port-forward svc/${NAMESPACE}-youtube-tracker 30080:30080 -n $NAMESPACE
