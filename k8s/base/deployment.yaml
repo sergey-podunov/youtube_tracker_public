@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: youtube-tracker
-          image: ghcr.io/sergey-podunov/youtube_tracker:pr-8
+          image: ghcr.io/sergey-podunov/youtube_tracker:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
