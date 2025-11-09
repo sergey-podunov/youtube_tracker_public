@@ -17,16 +17,6 @@ replicas:
     count: 3
 
 patches:
-#  - target:
-#      kind: Deployment
-#      name: youtube-tracker
-#    patch: |-
-#      - op: replace
-#        path: /spec/template/spec/containers/0/ports/0/containerPort
-#        value: 8080
-#      - op: replace
-#        path: /spec/template/spec/containers/0/env/0/value
-#        value: "8080"
   - target:
       kind: Ingress
       name: youtube-tracker
