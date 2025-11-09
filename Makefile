@@ -5,7 +5,10 @@ DOCKER_IMAGE_NAME=youtube-tracker
 generate:
 	go generate
 
-build: generate integration_test vet lint
+build: generate test vet lint
+	GOARCH=amd64 GOOS=linux go build -o bin/${BINARY_NAME}-linux ./cmd/app/main.go
+
+full_build: build integration_test
 	GOARCH=amd64 GOOS=darwin go build -o bin/${BINARY_NAME}-darwin ./cmd/app/main.go
 	GOARCH=amd64 GOOS=linux go build -o bin/${BINARY_NAME}-linux ./cmd/app/main.go
 	GOARCH=amd64 GOOS=windows go build -o bin/${BINARY_NAME}-windows ./cmd/app/main.go

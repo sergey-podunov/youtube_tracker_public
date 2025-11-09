@@ -1,0 +1,11 @@
+#!/bin/bash
+
+echo "Running pre-commit hook: Building project and running tests..."
+
+if ! make build; then
+    echo "Build failed. Aborting push."
+    exit 1
+fi
+
+echo "Build and tests succeeded. Proceeding with push..."
+exit 0
