@@ -5,6 +5,7 @@ auth-cache.json
 pkg
 /config.json
 /k8s/000-postgres-secrets.yml
+/k8s/000-notify-secrets.yml
 api
 youtube_tracker.exe
 .DS_Store

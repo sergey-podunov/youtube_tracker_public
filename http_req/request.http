@@ -1,5 +1,4 @@
-### GET books
-
+### status
 GET {{url}}/status
 
 ### store channel

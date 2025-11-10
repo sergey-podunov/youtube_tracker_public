@@ -11,6 +11,7 @@ import (
 	"time"
 	"youtube_tracker/internal/api"
 	mainHanler "youtube_tracker/internal/http_handler"
+	"youtube_tracker/internal/notify"
 	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
 
@@ -32,7 +33,7 @@ type App struct {
 	httpServer *http.Server
 }
 
-func NewApp(ctx context.Context, port int, dbURL string, authDir string, ytClient youtube.Client) (*App, error) {
+func NewApp(ctx context.Context, port int, dbURL string, authDir string, notifierConfig notify.NotifierConfig, ytClient youtube.Client) (*App, error) {
 	dbPool, err := createDbPool(ctx, dbURL)
 	if err != nil {
 		return nil, err
@@ -46,7 +47,8 @@ func NewApp(ctx context.Context, port int, dbURL string, authDir string, ytClien
 	if ytClient != nil {
 		client = ytClient
 	} else {
-		httpClient, err := youtube.NewHttpClient(ctx, authDir)
+		notifier := notify.NewNotifier(notifierConfig)
+		httpClient, err := youtube.NewHttpClient(ctx, notifier, authDir)
 		if err != nil {
 			return nil, err
 		}
@@ -132,6 +134,18 @@ func toInt32(value string, fallback int32) int32 {
 	return fallback
 }
 
+func toInt64(value string, fallback int64) int64 {
+	if len(value) == 0 {
+		return fallback
+	}
+
+	if intValue, err := strconv.ParseInt(value, 10, 64); err == nil {
+		return intValue
+	}
+
+	return fallback
+}
+
 func toDuration(value string, fallback time.Duration) time.Duration {
 	if len(value) == 0 {
 		return fallback
@@ -161,13 +175,19 @@ func main() {
 	portStr := getEnvWithFallback("APP_PORT", "8080")
 	dbUrl := getEnvWithFallback("DB_URL", "")
 	authDir := getEnvWithFallback("AUTH_DIR", "")
-
+	
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		log.Fatalf("Invalid port specified: %v", err)
 	}
 
-	app, err := NewApp(ctx, port, dbUrl, authDir, nil)
+	notifierConfig := notify.NotifierConfig{
+		TelegramToken:   getEnvWithFallback("TELEGRAM_TOKEN", ""),
+		TelegramChatID:  toInt64(getEnv("TELEGRAM_CHAT_ID"), int64(0)),
+		SlackWebhookURL: getEnvWithFallback("SLACK_WEBHOOK_URL", ""),
+	}
+	
+	app, err := NewApp(ctx, port, dbUrl, authDir, notifierConfig,  nil)
 
 	if err != nil {
 		log.Fatal(err)

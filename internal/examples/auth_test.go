@@ -22,7 +22,7 @@ func TestGetAuthCode_Errors(t *testing.T) {
 	// Remove cases with nil error
 	testCases := []struct {
 		name string // Test case name
-		url  string // URL to pass into getAuthCode
+		url  string // url to pass into getAuthCode
 		err  error  // Expected error
 	}{
 		{
@@ -31,7 +31,7 @@ func TestGetAuthCode_Errors(t *testing.T) {
 			err:  fmt.Errorf("no code param: https://example.com/?state=state-token"),
 		},
 		{
-			name: "Empty URL",
+			name: "Empty url",
 			url:  "",
 			err:  fmt.Errorf("url is empty"),
 		},

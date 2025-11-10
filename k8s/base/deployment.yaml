@@ -50,6 +50,22 @@ spec:
               value: "30m"
             - name: POOL_HEALTH_CHECK_PERIOD
               value: "1m"
+            # Notifier configuration (optional)
+            - name: TELEGRAM_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: notify-secrets
+                  key: TELEGRAM_TOKEN
+            - name: TELEGRAM_CHAT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: notify-secrets
+                  key: TELEGRAM_CHAT_ID
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: notify-secrets
+                  key: SLACK_WEBHOOK_URL
           volumeMounts:
             - name: auth-token
               mountPath: /app/auth

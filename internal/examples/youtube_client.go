@@ -44,7 +44,7 @@ func getAuthCode(urlStr string) (string, error) {
 }
 
 // getClient uses a Context and Config to retrieve a Token
-// then generate a Client. It returns the generated Client.
+// then generate a client. It returns the generated client.
 func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
 	cacheFile, err := tokenCacheFile()
 	if err != nil {
