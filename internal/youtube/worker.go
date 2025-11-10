@@ -29,7 +29,7 @@ func (w *StatisticsWorker) GetChannelStats(channelID int64) error {
 		return err
 	}
 
-	channelData, err := w.client.GetChannelData(channel.ExternalID)
+	channelData, err := w.client.GetChannelData(ctx, channel.ExternalID)
 	if err != nil {
 		return err
 	}

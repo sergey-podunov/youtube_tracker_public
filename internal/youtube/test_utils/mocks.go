@@ -1,6 +1,7 @@
 package test_utils
 
 import (
+	"context"
 	"youtube_tracker/internal/youtube"
 	
 	"github.com/stretchr/testify/mock"
@@ -11,8 +12,8 @@ type MockYoutubeClient struct {
 	mock.Mock
 }
 
-func (m *MockYoutubeClient) GetChannelData(channelId string) (youtube.ChannelData, error) {
-	args := m.Called(channelId)
+func (m *MockYoutubeClient) GetChannelData(ctx context.Context, channelId string) (youtube.ChannelData, error) {
+	args := m.Called(ctx, channelId)
 
 	var data youtube.ChannelData
 	if args.Get(0) != nil {

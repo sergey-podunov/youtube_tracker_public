@@ -40,7 +40,7 @@ func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
 		CreatedAt:        time.Time{},
 	}, true, nil)
 
-	suite.mockClient.On("GetChannelData", "3263yw").Return(youtube.ChannelData{
+	suite.mockClient.On("GetChannelData", ctx, "3263yw").Return(youtube.ChannelData{
 		ChannelID:        "3263yw",
 		SubscribersCount: 63362,
 	}, nil)

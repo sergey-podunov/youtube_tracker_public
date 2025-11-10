@@ -14,6 +14,7 @@ import (
 	"time"
 	"youtube_tracker/internal/api"
 	"youtube_tracker/internal/helpers"
+	"youtube_tracker/internal/notify"
 	"youtube_tracker/internal/youtube"
 
 	"github.com/ogen-go/ogen/conv"
@@ -30,14 +31,14 @@ type MockYoutubeClient struct {
 	GetChannelDataFunc func(channelId string) (youtube.ChannelData, error)
 }
 
-func (m *MockYoutubeClient) GetChannelId(channelName string) (string, error) {
+func (m *MockYoutubeClient) GetChannelId(ctx context.Context, channelName string) (string, error) {
 	if m.GetChannelIdFunc != nil {
 		return m.GetChannelIdFunc(channelName)
 	}
 	return "", fmt.Errorf("GetChannelId not implemented in mock")
 }
 
-func (m *MockYoutubeClient) GetChannelData(channelId string) (youtube.ChannelData, error) {
+func (m *MockYoutubeClient) GetChannelData(ctx context.Context, channelId string) (youtube.ChannelData, error) {
 	if m.GetChannelDataFunc != nil {
 		return m.GetChannelDataFunc(channelId)
 	}
@@ -247,7 +248,7 @@ func createPgContainer(ctx context.Context) *helpers.PostgresContainer {
 }
 
 func createApp(ctx context.Context, host string, port int, dbUrl string) *App {
-	app, err := NewApp(ctx, port, dbUrl, "", mockClient)
+	app, err := NewApp(ctx, port, dbUrl, "", notify.NotifierConfig{}, mockClient)
 	if err != nil {
 		log.Fatal(err)
 	}
