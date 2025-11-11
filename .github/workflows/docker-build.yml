@@ -2,9 +2,7 @@ name: Build and Push Docker Image
 
 on:
   pull_request:
-    types: [closed]
-    branches:
-      - main
+    types: [opened, synchronize, reopened]
   push:
     tags:
       - 'v*'
@@ -21,10 +19,6 @@ jobs:
       packages: write
 
     steps:
-      - name: Check if PR was merged
-        if: github.event_name == 'pull_request' && github.event.pull_request.merged == false
-        run: exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -46,8 +40,21 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=pr-${{ github.event.pull_request.number }},enable=${{ github.event_name == 'pull_request' }}
+            # For pull requests, use pr-<PR_NUMBER>-<RUN_NUMBER> as a unique build identifier
+            type=raw,value=pr-${{ github.event.pull_request.number }}-${{ github.run_number }},enable=${{ github.event_name == 'pull_request' }}
             type=raw,value=latest,enable=${{ github.event_name == 'pull_request' && github.event.pull_request.merged == true }}
+
+      - name: Set BUILD_TAG environment variable
+        id: set_build_tag
+        run: |
+          BUILD_TAG_VALUE="${{ github.sha }}" # Default to commit SHA
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # Align BUILD_TAG with the Docker image tag for PRs
+            BUILD_TAG_VALUE="pr-${{ github.event.pull_request.number }}-${{ github.run_number }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            BUILD_TAG_VALUE="${{ github.ref_name }}" # Use the Git tag if it's a version release
+          fi
+          echo "BUILD_TAG=$BUILD_TAG_VALUE" >> "$GITHUB_ENV"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
