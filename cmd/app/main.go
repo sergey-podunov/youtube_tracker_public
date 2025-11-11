@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 	"youtube_tracker/internal/api"
+	"youtube_tracker/internal/helpers"
 	mainHanler "youtube_tracker/internal/http_handler"
 	"youtube_tracker/internal/notify"
 	"youtube_tracker/internal/youtube"
@@ -89,11 +90,11 @@ func createDbPool(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
-	config.MaxConns = toInt32(getEnv("POOL_MAX_SIZE"), defaultPoolMaxSize)
-	config.MinConns = toInt32(getEnv("POOL_MIN_SIZE"), defaultPoolMinSize)
-	config.MaxConnLifetime = toDuration(getEnv("POOL_MAX_CONN_LIFETIME"), defaultPoolMaxConnectionLifetime)
-	config.MaxConnIdleTime = toDuration(getEnv("POOL_MAX_CONN_IDLE_TIME"), defaultPoolMaxConnectionIdleTime)
-	config.HealthCheckPeriod = toDuration(getEnv("POOL_HEALTH_CHECK_PERIOD"), defaultPoolHealthCheckPeriod)
+	config.MaxConns = helpers.ToInt32(helpers.GetEnv("POOL_MAX_SIZE"), defaultPoolMaxSize)
+	config.MinConns = helpers.ToInt32(helpers.GetEnv("POOL_MIN_SIZE"), defaultPoolMinSize)
+	config.MaxConnLifetime = helpers.ToDuration(helpers.GetEnv("POOL_MAX_CONN_LIFETIME"), defaultPoolMaxConnectionLifetime)
+	config.MaxConnIdleTime = helpers.ToDuration(helpers.GetEnv("POOL_MAX_CONN_IDLE_TIME"), defaultPoolMaxConnectionIdleTime)
+	config.HealthCheckPeriod = helpers.ToDuration(helpers.GetEnv("POOL_HEALTH_CHECK_PERIOD"), defaultPoolHealthCheckPeriod)
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
@@ -122,69 +123,22 @@ func (app *App) Stop(ctx context.Context) error {
 	return app.httpServer.Shutdown(ctx)
 }
 
-func toInt32(value string, fallback int32) int32 {
-	if len(value) == 0 {
-		return fallback
-	}
-
-	if intValue, err := strconv.ParseInt(value, 10, 32); err == nil {
-		return int32(intValue)
-	}
-
-	return fallback
-}
-
-func toInt64(value string, fallback int64) int64 {
-	if len(value) == 0 {
-		return fallback
-	}
-
-	if intValue, err := strconv.ParseInt(value, 10, 64); err == nil {
-		return intValue
-	}
-
-	return fallback
-}
-
-func toDuration(value string, fallback time.Duration) time.Duration {
-	if len(value) == 0 {
-		return fallback
-	}
-
-	if duration, err := time.ParseDuration(value); err == nil {
-		return duration
-	}
-
-	return fallback
-}
-
-func getEnv(key string) string {
-	return getEnvWithFallback(key, "")
-}
-
-func getEnvWithFallback(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return fallback
-}
-
 func main() {
 	ctx := context.Background()
 
-	portStr := getEnvWithFallback("APP_PORT", "8080")
-	dbUrl := getEnvWithFallback("DB_URL", "")
-	authDir := getEnvWithFallback("AUTH_DIR", "")
-	
+	portStr := helpers.GetEnvWithFallback("APP_PORT", "8080")
+	dbUrl := helpers.GetEnvWithFallback("DB_URL", "")
+	authDir := helpers.GetEnvWithFallback("AUTH_DIR", "")
+
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		log.Fatalf("Invalid port specified: %v", err)
 	}
 
 	notifierConfig := notify.NotifierConfig{
-		TelegramToken:   getEnvWithFallback("TELEGRAM_TOKEN", ""),
-		TelegramChatID:  toInt64(getEnv("TELEGRAM_CHAT_ID"), int64(0)),
-		SlackWebhookURL: getEnvWithFallback("SLACK_WEBHOOK_URL", ""),
+		TelegramToken:   helpers.GetEnvWithFallback("TELEGRAM_TOKEN", ""),
+		TelegramChatID:  helpers.ToInt64(helpers.GetEnv("TELEGRAM_CHAT_ID"), int64(0)),
+		SlackWebhookURL: helpers.GetEnvWithFallback("SLACK_WEBHOOK_URL", ""),
 	}
 	
 	app, err := NewApp(ctx, port, dbUrl, authDir, notifierConfig,  nil)
