@@ -1,10 +1,11 @@
 name: Build and Push Docker Image
 
 on:
-  workflow_run:
-    workflows: [Build]
-    types:
-      - completed # Triggers when the antecedent workflow finishes, regardless of status
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    tags:
+      - 'v*'
 
 env:
   REGISTRY: ghcr.io
@@ -13,7 +14,6 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       packages: write
@@ -21,11 +21,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          # Important: Checkout the exact commit that triggered the original workflow run (Build workflow)
-          ref: ${{ github.event.workflow_run.head_sha }}
-          # Need a token to fetch full commit history if needed, for example, by some actions like metadata-action
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -45,25 +40,19 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            # For pull requests, use pr-<PR_NUMBER>-<ANTECEDENT_WORKFLOW_RUN_NUMBER>
-            # Access event details from the original workflow run (Build workflow)
-            type=raw,value=pr-${{ github.event.workflow_run.event.pull_request.number }}-${{ github.event.workflow_run.run_number }},enable=${{ github.event.workflow_run.event_name == 'pull_request' }}
-            # Assign 'latest' tag if the original event was a merged pull request
-            type=raw,value=latest,enable=${{ github.event.workflow_run.event_name == 'pull_request' && github.event.workflow_run.event.pull_request.merged == true }}
-            # For push tags (e.g., v1.0.0), if the original event was a push of a tag
-            type=ref,event=tag,enable=${{ github.event.workflow_run.event_name == 'push' && startsWith(github.event.workflow_run.event.ref, 'refs/tags/v') }}
+            # For pull requests, use pr-<PR_NUMBER>-<RUN_NUMBER> as a unique build identifier
+            type=raw,value=pr-${{ github.event.pull_request.number }}-${{ github.run_number }},enable=${{ github.event_name == 'pull_request' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'pull_request' && github.event.pull_request.merged == true }}
 
       - name: Set BUILD_TAG environment variable
         id: set_build_tag
         run: |
-          # Use SHA from the original workflow run for the BUILD_TAG by default
-          BUILD_TAG_VALUE="${{ github.event.workflow_run.head_sha }}"
-          if [[ "${{ github.event.workflow_run.event_name }}" == "pull_request" ]]; then
-            # If the original event was a PR, use the original PR number and the run number of the 'Build' workflow
-            BUILD_TAG_VALUE="pr-${{ github.event.workflow_run.event.pull_request.number }}-${{ github.event.workflow_run.run_number }}"
-          elif [[ "${{ github.event.workflow_run.event_name }}" == "push" && "${{ startsWith(github.event.workflow_run.event.ref, 'refs/tags/v') }}" == "true" ]]; then
-            # If the original event was a push of a tag, use the tag name
-            BUILD_TAG_VALUE="${{ github.event.workflow_run.event.ref_name }}"
+          BUILD_TAG_VALUE="${{ github.sha }}" # Default to commit SHA
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # Align BUILD_TAG with the Docker image tag for PRs
+            BUILD_TAG_VALUE="pr-${{ github.event.pull_request.number }}-${{ github.run_number }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            BUILD_TAG_VALUE="${{ github.ref_name }}" # Use the Git tag if it's a version release
           fi
           echo "BUILD_TAG=$BUILD_TAG_VALUE" >> "$GITHUB_ENV"
 
