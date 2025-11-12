@@ -56,16 +56,19 @@ spec:
                 secretKeyRef:
                   name: notify-secrets
                   key: TELEGRAM_TOKEN
+                  optional: true
             - name: TELEGRAM_CHAT_ID
               valueFrom:
                 secretKeyRef:
                   name: notify-secrets
                   key: TELEGRAM_CHAT_ID
+                  optional: true
             - name: SLACK_WEBHOOK_URL
               valueFrom:
                 secretKeyRef:
                   name: notify-secrets
                   key: SLACK_WEBHOOK_URL
+                  optional: true
           volumeMounts:
             - name: auth-token
               mountPath: /app/auth
