@@ -19,6 +19,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -o /ytracker ./cmd/app/main.go
 # Stage 2: Create the final, lightweight image
 FROM alpine:latest
 
+# Build-time argument for the build tag, with a default of 'unknown'
+ARG BUILD_TAG=unknown
+# Set an environment variable inside the container with the build tag
+ENV BUILD_TAG=${BUILD_TAG}
+
 # Set default environment variables for the running container.
 # These can be overridden at runtime.
 ENV APP_PORT="8081"

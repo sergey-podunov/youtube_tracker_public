@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 	"youtube_tracker/internal/api"
+	"youtube_tracker/internal/helpers"
 	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
 )
@@ -80,9 +81,11 @@ var startTime = time.Now()
 
 func (handler *MainHTTPHandler) StatusGet(ctx context.Context) (*api.Status, error) {
 	uptime := time.Since(startTime)
+	dockerTag := helpers.GetEnvWithFallback("BUILD_TAG", "undefined")
 
 	return &api.Status{
 		Uptime: api.NewOptString(fmt.Sprintf("%d ms", uptime.Milliseconds())),
+		DockerTag: api.NewOptString(dockerTag),
 	}, nil
 }
 

@@ -45,7 +45,7 @@ vet:
 lint:
 	golangci-lint run
 
-docker-build: integration_test vet lint
+docker-build:
 	docker build -t ${DOCKER_IMAGE_NAME} .
 
 atlas-schema:

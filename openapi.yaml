@@ -133,6 +133,9 @@ components:
       properties:
         uptime:
           type: string
+        docker_tag:
+          type: string
+          description: tag of the docker image
     YoutubeChannel:
       description: Youtube Channel
       type: object
