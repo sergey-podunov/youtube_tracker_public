@@ -1,7 +1,6 @@
 package youtube_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -27,11 +26,11 @@ type StatisticsWorkerTestSuite struct {
 func (suite *StatisticsWorkerTestSuite) SetupTest() {
 	suite.mockRepository = new(stats.MockChannelRepository)
 	suite.mockClient = new(test_utils.MockYoutubeClient)
-	suite.worker = youtube.NewStatisticsWorker(suite.mockRepository, suite.mockClient)
+	suite.worker = youtube.NewStatisticsWorker(test_utils.NewNopLogger(), suite.mockRepository, suite.mockClient)
 }
 
 func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
-	ctx := context.Background()
+	ctx := suite.T().Context()
 
 	suite.mockRepository.On("GetChannel", ctx, int64(123456789)).Return(stats.YoutubeChannel{
 		YoutubeChannelId: int64(123456789),
@@ -54,7 +53,7 @@ func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
 			SubscribersCount:     63362,
 		}, nil)
 
-	err := suite.worker.GetChannelStats(int64(123456789))
+	err := suite.worker.GetChannelStats(ctx, int64(123456789))
 	suite.NoError(err)
 
 	suite.mockRepository.AssertExpectations(suite.T())
@@ -62,14 +61,14 @@ func (suite *StatisticsWorkerTestSuite) TestGetChannel() {
 }
 
 func (suite *StatisticsWorkerTestSuite) TestGetChannelStatsError() {
-	ctx := context.Background()
+	ctx := suite.T().Context()
 	channelID := int64(123456789)
 
 	expectedError := fmt.Errorf("database error")
 
 	suite.mockRepository.On("GetChannel", ctx, mock.Anything).Return(stats.YoutubeChannel{}, false, expectedError)
 
-	err := suite.worker.GetChannelStats(channelID)
+	err := suite.worker.GetChannelStats(ctx, channelID)
 	suite.NotNil(err)
 
 	suite.mockRepository.AssertExpectations(suite.T())

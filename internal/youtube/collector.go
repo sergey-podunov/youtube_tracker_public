@@ -3,9 +3,10 @@ package youtube
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
+	"youtube_tracker/internal/helpers"
 	"youtube_tracker/internal/youtube/stats"
 )
 
@@ -47,6 +48,7 @@ type result struct {
 }
 
 type WorkerCollector struct {
+	logger              *slog.Logger
 	channelRepo         stats.ChannelRepository
 	workers             []Worker
 	jobs                map[int64]*job
@@ -55,8 +57,11 @@ type WorkerCollector struct {
 	channelCollectLimit int
 }
 
-func NewStatisticsCollector(channelRepo stats.ChannelRepository, workers []Worker, channelLimit int) *WorkerCollector {
+const statisticsCollectorComponentName = "StatisticsCollector"
+
+func NewStatisticsCollector(logger *slog.Logger, channelRepo stats.ChannelRepository, workers []Worker, channelLimit int) *WorkerCollector {
 	return &WorkerCollector{
+		logger:              logger.With(slog.String("component", statisticsCollectorComponentName)),
 		channelRepo:         channelRepo,
 		workers:             workers,
 		jobs:                make(map[int64]*job),
@@ -66,6 +71,8 @@ func NewStatisticsCollector(channelRepo stats.ChannelRepository, workers []Worke
 }
 
 func (s *WorkerCollector) CollectStatistics(ctx context.Context) int64 {
+	logger := helpers.LoggerFromContext(ctx, statisticsCollectorComponentName, s.logger)
+
 	s.mu.Lock()
 	jobID := s.nextJobID
 	s.nextJobID++
@@ -77,20 +84,23 @@ func (s *WorkerCollector) CollectStatistics(ctx context.Context) int64 {
 		Ready:  0,
 	}
 	s.jobs[jobID] = job
+
+	logger.Info("Job created", slog.Int64("job_id", jobID))
 	s.mu.Unlock()
 
-	ctxBackground := context.Background()
+	ctxBackground := context.WithValue(context.Background(), helpers.LoggerKey, logger)
 	go s.runJob(ctxBackground, job)
 
 	return jobID
 }
 
 func (s *WorkerCollector) runJob(ctx context.Context, job *job) {
+	logger := helpers.LoggerFromContext(ctx, statisticsCollectorComponentName, s.logger)
+
 	channels, err := s.channelRepo.GetChannels(ctx, time.Now().UTC(), s.channelCollectLimit)
 	if err != nil {
-		log.Printf("Error getting channels for job %d: %v", job.ID, err)
+		logger.Error("Error getting channels for job", slog.Int64("job_id", job.ID), "err", err)
 		job.Status = StatusError
-
 		return
 	}
 
@@ -99,6 +109,7 @@ func (s *WorkerCollector) runJob(ctx context.Context, job *job) {
 	job.Mu.Lock()
 	job.Status = StatusRunning
 	job.Total = int32(channelsCount)
+	logger.Info("job started", slog.Int64("job_id", job.ID), slog.Int("channels_count", channelsCount))
 	job.Mu.Unlock()
 
 	channelIDs := make([]int64, channelsCount)
@@ -109,55 +120,59 @@ func (s *WorkerCollector) runJob(ctx context.Context, job *job) {
 	jobsChan := make(chan int64, len(channelIDs))
 	resultChan := make(chan result, len(channelIDs))
 	completeChan := make(chan bool, 1)
-
+	
+	backgroundCtx := helpers.CreateBackgroundContext(ctx, logger)
+	
 	for i := 0; i < len(s.workers); i++ {
 		go func() {
 			for channelID := range jobsChan {
-				log.Printf("processing channel %d for job %d", channelID, job.ID)
-				err := s.workers[i].GetChannelStats(channelID)
-
+				logger.Info("processing channel", slog.Int64("job_id", job.ID), slog.Int64("channel_id", channelID))
+				err := s.workers[i].GetChannelStats(backgroundCtx, channelID)
+				
 				if err != nil {
-					log.Printf("Error processing channel %d for job %d: %#v", channelID, job.ID, err)
+					logger.Error("Error processing channel", slog.Int64("job_id", job.ID), slog.Int64("channel_id", channelID), "err", err)
 				}
-
+				
 				res := result{channelID: channelID, err: err}
-				log.Printf("sending result of channel %d for job %d: %#v", channelID, job.ID, res)
-
+				logger.Info("channel processed",
+					slog.Int64("job_id", job.ID), slog.Int64("channel_id", channelID), slog.Any("result", res))
+				
 				resultChan <- res
 			}
 		}()
 	}
-
+	
 	go func() {
 		for result := range resultChan {
 			job.Mu.Lock()
-			log.Printf("got result for channel %d, job %d: %#v", result.channelID, job.ID, result)
+			logger.Info("got result for channel",
+				slog.Int64("job_id", job.ID), slog.Int64("channel_id", result.channelID), slog.Any("result", result))
 			if result.err != nil {
 				job.Error++
 			} else {
 				job.Ready++
 			}
-
+			
 			if job.Ready+job.Error == job.Total {
-				log.Printf("job %d is complete", job.ID)
+				logger.Info("job completed", slog.Int64("job_id", job.ID))
 				job.Status = StatusComplete
-
+				
 				completeChan <- true
 			}
-
+			
 			job.Mu.Unlock()
 		}
 	}()
-
+	
 	for _, channelID := range channelIDs {
 		jobsChan <- channelID
 	}
-
+	
 	close(jobsChan)
-
+	
 	<-completeChan
-
-	log.Printf("closing job %d result channel", job.ID)
+	
+	logger.Info("closing job result channel", slog.Int64("job_id", job.ID))
 	close(completeChan)
 }
 
@@ -175,6 +190,6 @@ func (s *WorkerCollector) GetJobStatus(jobID int64) (JobView, error) {
 		Status: job.Status,
 		Total:  job.Total,
 		Ready:  job.Ready,
-		Error: job.Error,
+		Error:  job.Error,
 	}, nil
 }

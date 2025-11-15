@@ -3,8 +3,10 @@ package stats
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"youtube_tracker/internal/helpers"
-
+	
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/suite"
 )
@@ -46,7 +48,8 @@ func (suite *BaseChannelRepoTestSuite) SetupTest() {
 
 	suite.tx = tx
 
-	suite.repository = &YoutubeChannelRepository{db: tx}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	suite.repository = &YoutubeChannelRepository{db: tx, logger: logger}
 }
 
 func (suite *BaseChannelRepoTestSuite) TearDownTest() {

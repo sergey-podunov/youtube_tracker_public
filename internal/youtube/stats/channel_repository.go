@@ -3,10 +3,10 @@ package stats
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 	"youtube_tracker/internal/helpers"
-
+	
 	"github.com/jackc/pgx/v5"
 )
 
@@ -30,13 +30,21 @@ type Database interface {
 
 type YoutubeChannelRepository struct {
 	db Database
+	logger *slog.Logger
 }
 
-func NewChannelRepository(db Database) *YoutubeChannelRepository {
-	return &YoutubeChannelRepository{db: db}
+const channelRepositoryComponentName = "YoutubeChannelRepository"
+
+func NewChannelRepository(logger *slog.Logger, db Database) *YoutubeChannelRepository {
+	return &YoutubeChannelRepository{
+		db: db,
+		logger: logger.With(slog.String("component", channelRepositoryComponentName)),
+	}
 }
 
 func (r *YoutubeChannelRepository) createChannel(ctx context.Context, q helpers.Querier, channel YoutubeChannel) (YoutubeChannel, error) {
+	logger := helpers.LoggerFromContext(ctx, channelRepositoryComponentName, r.logger)
+	logger.Info("Creating channel", slog.Any("channel", channel))
 	query := `
 		INSERT INTO youtube_channel (
 			channel_name, 
@@ -55,7 +63,7 @@ func (r *YoutubeChannelRepository) createChannel(ctx context.Context, q helpers.
 
 	var insertedID int64
 	if err := q.QueryRow(ctx, query, channel.Name, channel.ExternalID, channel.CreatedAt).Scan(&insertedID); err != nil {
-		log.Printf("Failed to insert channel: %v\n", err)
+		logger.Error("Failed to insert channel", slog.Any("channel", channel), "error", err)
 		return YoutubeChannel{}, err
 	}
 
@@ -121,6 +129,8 @@ func (r *YoutubeChannelRepository) getChannelByExternalId(ctx context.Context, q
 }
 
 func (r *YoutubeChannelRepository) StoreSubscriptionsCount(ctx context.Context, stats YoutubeChannelStats) (YoutubeChannelStats, error) {
+	logger := helpers.LoggerFromContext(ctx, channelRepositoryComponentName, r.logger)
+	
 	query := `
 		INSERT INTO youtube_channel_stat (
 			youtube_channel_id, 
@@ -139,7 +149,7 @@ func (r *YoutubeChannelRepository) StoreSubscriptionsCount(ctx context.Context, 
 
 	var insertedID int64
 	if err := r.db.QueryRow(ctx, query, stats.YoutubeChannelID, stats.SubscribersCount, stats.CreatedAt).Scan(&insertedID); err != nil {
-		log.Printf("Failed to insert channel: %v\n", err)
+		logger.Error("Failed to insert channel stat", slog.Any("channel_stat", stats), "error", err)
 		return YoutubeChannelStats{}, err
 	}
 

@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
+	"youtube_tracker/internal/helpers"
 )
 
 // Notifier is a minimal interface for sending a text message using a simple HTTP POST.
@@ -33,16 +35,19 @@ type NotifierConfig struct {
 	SlackWebhookURL string
 }
 
-type Noop struct {}
+type Noop struct{}
 
 func (Noop) Send(_ context.Context, _ string) error { return nil }
 
 type slackWebhook struct {
 	url    string
 	client *http.Client
+	logger *slog.Logger
 }
 
 func (s slackWebhook) Send(ctx context.Context, text string) error {
+	helpers.LoggerWithRequestID(ctx, s.logger).Info("sending message", slog.String("text", text))
+
 	payload := map[string]any{"text": text}
 	b, _ := json.Marshal(payload)
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, s.url, bytes.NewReader(b))
@@ -70,54 +75,65 @@ type tgSendPayload struct {
 
 type telegram struct {
 	botToken string
-	chatID int64
-	client *http.Client
+	chatID   int64
+	client   *http.Client
+	logger *slog.Logger
 }
 
 func (t telegram) Send(ctx context.Context, text string) error {
+	helpers.LoggerWithRequestID(ctx, t.logger).Info("sending message", slog.String("text", text))
+	
 	p := tgSendPayload{ChatID: t.chatID, Text: text}
 	b, _ := json.Marshal(p)
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", t.botToken)
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := t.client.Do(req)
 	if err != nil {
 		return err
 	}
 	//nolint:errcheck
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode/100 != 2 {
 		return fmt.Errorf("telegram api status %d", resp.StatusCode)
 	}
-	
+
 	return nil
 }
 
 // NewNotifier chooses telegram if TELEGRAM_TOKEN is set; otherwise Slack webhook.
 // If required configs are missing, falls back to Noop.
-func NewNotifier(config NotifierConfig) Notifier {
+func NewNotifier(logger *slog.Logger, config NotifierConfig) Notifier {
+	logger = logger.With("component_name", "Notifier")
+
 	httpClient := &http.Client{Timeout: 10 * time.Second}
-	
+
 	if len(strings.TrimSpace(config.TelegramToken)) != 0 {
 		if config.TelegramChatID == 0 {
+			logger.Info("telegram chat_id not set, falling back to noop")
 			return Noop{}
 		}
-		
+
+		logger.Info("returning telegram notifier")
 		return telegram{
 			botToken: config.TelegramToken,
 			chatID:   config.TelegramChatID,
 			client:   httpClient,
-		}
-	}
-	
-	if len(strings.TrimSpace(config.SlackWebhookURL)) != 0 {
-		return slackWebhook{
-			url:    config.SlackWebhookURL,
-			client: httpClient,
+			logger:   logger,
 		}
 	}
 
+	if len(strings.TrimSpace(config.SlackWebhookURL)) != 0 {
+		logger.Info("returning slack notifier")
+		return slackWebhook{
+			url:    config.SlackWebhookURL,
+			client: httpClient,
+			logger: logger,
+		}
+	}
+
+	logger.Info("no notifier configured, returning noop")
 	return Noop{}
 }

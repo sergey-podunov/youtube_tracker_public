@@ -27,7 +27,7 @@ type MockStatisticsWorker struct {
 	mock.Mock
 }
 
-func (m *MockStatisticsWorker) GetChannelStats(channelID int64) error {
-	args := m.Called(channelID)
+func (m *MockStatisticsWorker) GetChannelStats(ctx context.Context, channelID int64) error {
+	args := m.Called(ctx, channelID)
 	return args.Error(0)
 }

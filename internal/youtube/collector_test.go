@@ -3,6 +3,7 @@ package youtube_test
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 	"youtube_tracker/internal/youtube"
@@ -23,14 +24,16 @@ type StatisticsCollectorTestSuite struct {
 	collector      youtube.StatisticsCollector
 	mockWorker     *test_utils.MockStatisticsWorker
 	mockRepository *stats.MockChannelRepository
+	logger         *slog.Logger
 }
 
 func (suite *StatisticsCollectorTestSuite) SetupTest() {
 	suite.mockRepository = new(stats.MockChannelRepository)
 	suite.mockWorker = new(test_utils.MockStatisticsWorker)
 	workers := []youtube.Worker{suite.mockWorker}
-	
-	collector := youtube.NewStatisticsCollector(suite.mockRepository, workers, 5)
+	suite.logger = test_utils.NewNopLogger()
+
+	collector := youtube.NewStatisticsCollector(suite.logger, suite.mockRepository, workers, 5)
 	suite.collector = collector
 }
 
@@ -41,7 +44,7 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollector() {
 	assertTime := func(before time.Time) bool {
 		return before != time.Time{}
 	}
-	suite.mockRepository.On("GetChannels", ctx, mock.MatchedBy(assertTime), 5).Return([]stats.YoutubeChannel{
+	suite.mockRepository.On("GetChannels", mock.Anything, mock.MatchedBy(assertTime), 5).Return([]stats.YoutubeChannel{
 		{
 			YoutubeChannelId: int64(123456789),
 			ExternalID:       "3263yw",
@@ -50,7 +53,7 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollector() {
 		},
 	}, nil)
 
-	suite.mockWorker.On("GetChannelStats", int64(123456789)).Return(nil)
+	suite.mockWorker.On("GetChannelStats", mock.Anything, int64(123456789)).Return(nil)
 
 	jobID := suite.collector.CollectStatistics(ctx)
 	assert.Equal(t, int64(1), jobID)
@@ -77,10 +80,10 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollector() {
 }
 
 func (suite *StatisticsCollectorTestSuite) TestStatisticsCollectorWorkerError() {
-	ctx := context.Background()
+	ctx := suite.T().Context()
 	t := suite.T()
 
-	suite.mockRepository.On("GetChannels", ctx, mock.Anything, mock.Anything).Return([]stats.YoutubeChannel{
+	suite.mockRepository.On("GetChannels", mock.Anything, mock.Anything, mock.Anything).Return([]stats.YoutubeChannel{
 		{
 			YoutubeChannelId: int64(123456789),
 			ExternalID:       "3263yw",
@@ -89,7 +92,7 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollectorWorkerError() 
 		},
 	}, nil)
 
-	suite.mockWorker.On("GetChannelStats", int64(123456789)).Return(fmt.Errorf("worker error"))
+	suite.mockWorker.On("GetChannelStats", mock.Anything, int64(123456789)).Return(fmt.Errorf("worker error"))
 
 	jobID := suite.collector.CollectStatistics(ctx)
 	assert.Equal(t, int64(1), jobID)
@@ -116,10 +119,10 @@ func (suite *StatisticsCollectorTestSuite) TestStatisticsCollectorWorkerError() 
 }
 
 func (suite *StatisticsCollectorTestSuite) TestStatisticsCollectorRunJobError() {
-	ctx := context.Background()
+	ctx := suite.T().Context()
 	t := suite.T()
 
-	suite.mockRepository.On("GetChannels", ctx, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("repository error"))
+	suite.mockRepository.On("GetChannels", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("repository error"))
 
 	jobID := suite.collector.CollectStatistics(ctx)
 	assert.Equal(t, int64(1), jobID)

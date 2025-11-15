@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"log/slog"
 	"time"
 	"youtube_tracker/internal/helpers"
 
@@ -22,16 +23,22 @@ type YoutubeChannelStatsInfo struct {
 type YoutubeChannelService struct {
 	db         helpers.TxController
 	repository internalChannelRepository
+	logger     *slog.Logger
 }
 
-func NewYoutubeChannelService(db helpers.TxController, repository internalChannelRepository) *YoutubeChannelService {
+const channelServiceComponentName = "YoutubeChannelService"
+
+func NewYoutubeChannelService(logger *slog.Logger, db helpers.TxController, repository internalChannelRepository) *YoutubeChannelService {
 	return &YoutubeChannelService{
 		db:         db,
 		repository: repository,
+		logger:     logger.With(slog.String("component", channelServiceComponentName)),
 	}
 }
 
 func (s *YoutubeChannelService) GetChannelStats(ctx context.Context, ID int64, from *time.Time, to *time.Time) (YoutubeChannelStatsInfo, bool, error) {
+	logger := helpers.LoggerFromContext(ctx, channelServiceComponentName, s.logger)
+
 	var statsInfo YoutubeChannelStatsInfo
 	var ok bool
 	err := helpers.RunInTx(ctx, s.db, func(ctx context.Context, tx pgx.Tx) error {
@@ -41,6 +48,7 @@ func (s *YoutubeChannelService) GetChannelStats(ctx context.Context, ID int64, f
 		}
 
 		if !channelExists {
+			logger.Info("Channel not found", slog.Int64("channel_id", ID))
 			ok = false
 			return nil
 		}
@@ -48,6 +56,10 @@ func (s *YoutubeChannelService) GetChannelStats(ctx context.Context, ID int64, f
 		channelStats, err := s.repository.getChannelStat(ctx, tx, ID)
 		if err != nil {
 			return err
+		}
+
+		if len(channelStats) == 0 {
+			logger.Info("There is no stat for channel", slog.Int64("channel_id", ID))
 		}
 
 		for i := range channelStats {
@@ -71,6 +83,7 @@ func (s *YoutubeChannelService) CreateChannel(ctx context.Context, channel Youtu
 	var createdYoutubeChannel YoutubeChannel
 	var channelCreated bool
 
+	logger := helpers.LoggerFromContext(ctx, channelServiceComponentName, s.logger)
 	err := helpers.RunInTx(ctx, s.db, func(ctx context.Context, tx pgx.Tx) error {
 		existingChannel, ok, err := s.repository.getChannelByExternalId(ctx, tx, channel.ExternalID)
 		if err != nil {
@@ -78,6 +91,7 @@ func (s *YoutubeChannelService) CreateChannel(ctx context.Context, channel Youtu
 		}
 
 		if ok {
+			logger.Warn("Channel already exists", slog.Any("channel", existingChannel))
 			createdYoutubeChannel = existingChannel
 			return nil
 		}
@@ -90,6 +104,7 @@ func (s *YoutubeChannelService) CreateChannel(ctx context.Context, channel Youtu
 		createdYoutubeChannel = newChannel
 		channelCreated = true
 
+		logger.Info("Channel created", slog.Any("channel", createdYoutubeChannel))
 		return nil
 	})
 

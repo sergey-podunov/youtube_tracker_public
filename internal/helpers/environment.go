@@ -1,6 +1,12 @@
 package helpers
 
-import "os"
+import (
+	"os"
+)
+
+func GetBuildTag() string {
+	return GetEnvWithFallback("BUILD_TAG", "undefined")
+}
 
 func GetEnv(key string) string {
 	return GetEnvWithFallback(key, "")

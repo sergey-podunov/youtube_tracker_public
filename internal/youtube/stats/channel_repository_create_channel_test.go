@@ -1,8 +1,11 @@
-//nolint:testpackage //because of using direct queuer replacement for db tests isolation
 //go:build database
+
+//nolint:testpackage //because of using direct queuer replacement for db tests isolation
 package stats
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 	"youtube_tracker/internal/helpers"
 
@@ -70,7 +73,7 @@ func TestYoutubeChannelRepository_CreateChannel(t *testing.T) {
 
 		tx, err := conn.Begin(ctx)
 		require.NoError(t, err)
-		repository := &YoutubeChannelRepository{db: tx}
+		repository := &YoutubeChannelRepository{db: tx, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 
 		t.Run(tc.name, func(t *testing.T) {
 			tc.test(t, tx, repository)
