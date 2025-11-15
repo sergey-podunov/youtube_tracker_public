@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -17,9 +17,12 @@ import (
 	"youtube_tracker/internal/youtube/stats"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/ogen-go/ogen/middleware"
 )
 
 const numWorkers = 10
+
+var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil)).With(slog.String("component", "Main"))
 
 const (
 	defaultPoolMaxSize               = 10
@@ -35,20 +38,22 @@ type App struct {
 }
 
 func NewApp(ctx context.Context, port int, dbURL string, authDir string, notifierConfig notify.NotifierConfig, ytClient youtube.Client) (*App, error) {
-	dbPool, err := createDbPool(ctx, dbURL)
+	logger.Info("Starting app", "dockerTag", helpers.GetBuildTag())
+
+	dbPool, err := createDbPool(ctx, logger, dbURL)
 	if err != nil {
 		return nil, err
 	}
 
-	channelRepository := stats.NewChannelRepository(dbPool)
+	channelRepository := stats.NewChannelRepository(logger, dbPool)
 
-	channelService := stats.NewYoutubeChannelService(dbPool, channelRepository)
+	channelService := stats.NewYoutubeChannelService(logger, dbPool, channelRepository)
 
 	var client youtube.Client
 	if ytClient != nil {
 		client = ytClient
 	} else {
-		notifier := notify.NewNotifier(notifierConfig)
+		notifier := notify.NewNotifier(logger, notifierConfig)
 		httpClient, err := youtube.NewHttpClient(ctx, notifier, authDir)
 		if err != nil {
 			return nil, err
@@ -59,13 +64,18 @@ func NewApp(ctx context.Context, port int, dbURL string, authDir string, notifie
 
 	workers := make([]youtube.Worker, numWorkers)
 	for i := 0; i < numWorkers; i++ {
-		workers[i] = youtube.NewStatisticsWorker(channelRepository, client)
+		workers[i] = youtube.NewStatisticsWorker(logger, channelRepository, client)
 	}
 
-	collector := youtube.NewStatisticsCollector(channelRepository, workers, 10)
-	httpHandler := mainHanler.NewHTTPHandler(collector, channelService, channelRepository)
+	collector := youtube.NewStatisticsCollector(logger, channelRepository, workers, 10)
+	httpHandler := mainHanler.NewHTTPHandler(logger, collector, channelService, channelRepository)
 
-	srv, err := api.NewServer(httpHandler)
+	chainMiddleware := middleware.ChainMiddlewares(
+		mainHanler.RequestIDGenerator,
+		mainHanler.NewRequestLogger(logger),
+	)
+
+	srv, err := api.NewServer(httpHandler, api.WithMiddleware(chainMiddleware))
 	if err != nil {
 		return nil, err
 	}
@@ -83,10 +93,10 @@ func NewApp(ctx context.Context, port int, dbURL string, authDir string, notifie
 	}, nil
 }
 
-func createDbPool(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
+func createDbPool(ctx context.Context, logger *slog.Logger, dbURL string) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Unable to parse connection string: %v\n", err)
+		logger.Error("Unable to parse connection string", "error", err)
 		return nil, err
 	}
 
@@ -96,9 +106,22 @@ func createDbPool(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 	config.MaxConnIdleTime = helpers.ToDuration(helpers.GetEnv("POOL_MAX_CONN_IDLE_TIME"), defaultPoolMaxConnectionIdleTime)
 	config.HealthCheckPeriod = helpers.ToDuration(helpers.GetEnv("POOL_HEALTH_CHECK_PERIOD"), defaultPoolHealthCheckPeriod)
 
+	logger.Info("Database connection config",
+		slog.Group("config",
+			"host", config.ConnConfig.Host,
+			"port", config.ConnConfig.Port,
+			"user", config.ConnConfig.User,
+			"database", config.ConnConfig.Database,
+			"maxCon", config.MaxConns,
+			"minCon", config.MinConns,
+			"maxConnLifetime", config.MaxConnLifetime.Milliseconds(),
+			"maxConnIdleTime", config.MaxConnIdleTime.Milliseconds(),
+			"healthCheckPeriod", config.HealthCheckPeriod.Milliseconds(),
+		))
+
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		logger.Error("Unable to connect to database", "error", err)
 		return nil, err
 	}
 
@@ -106,11 +129,13 @@ func createDbPool(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 		pool.Close()
 		return nil, err
 	}
+
+	logger.Info("Connected to database")
 	return pool, nil
 }
 
 func (app *App) Start() {
-	log.Printf("Starting server on %s", app.httpServer.Addr)
+	logger.Info("Starting server", "port", app.httpServer.Addr)
 
 	go func() {
 		if err := app.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -140,8 +165,8 @@ func main() {
 		TelegramChatID:  helpers.ToInt64(helpers.GetEnv("TELEGRAM_CHAT_ID"), int64(0)),
 		SlackWebhookURL: helpers.GetEnvWithFallback("SLACK_WEBHOOK_URL", ""),
 	}
-	
-	app, err := NewApp(ctx, port, dbUrl, authDir, notifierConfig,  nil)
+
+	app, err := NewApp(ctx, port, dbUrl, authDir, notifierConfig, nil)
 
 	if err != nil {
 		log.Fatal(err)

@@ -4,6 +4,8 @@
 package stats
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -83,7 +85,7 @@ func TestYoutubeChannelService_CreateChannel(t *testing.T) {
 
 		mockInternalRepository := new(internalMockChannelRepository)
 
-		service := NewYoutubeChannelService(mockTxtController, mockInternalRepository)
+		service := NewYoutubeChannelService(slog.New(slog.NewTextHandler(io.Discard, nil)), mockTxtController, mockInternalRepository)
 
 		t.Run(tc.name, func(t *testing.T) {
 			tc.test(t, service, mockInternalRepository)

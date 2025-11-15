@@ -3,9 +3,11 @@ package stats
 
 import (
 	"errors"
+	"io"
+	"log/slog"
 	"testing"
 	"youtube_tracker/internal/helpers"
-
+	
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -101,11 +103,12 @@ func TestYoutubeChannelService_GetChannelStat(t *testing.T) {
 
 	mockTxtController := new(MockTxController)
 	mockTxtController.On("Begin", ctx).Return(&MockTx{}, nil)
-
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			mockInternalRepository := new(internalMockChannelRepository)
-			service := NewYoutubeChannelService(mockTxtController, mockInternalRepository)
+			service := NewYoutubeChannelService(logger, mockTxtController, mockInternalRepository)
 
 			tc.test(t, mockInternalRepository, service)
 		})
