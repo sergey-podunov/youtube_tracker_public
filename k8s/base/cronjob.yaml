@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: statistics-scheduler
+spec:
+  suspend: true
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: scheduler
+            image: curlimages/curl:8.4.0
+            env:
+            - name: YOUTUBE_TRACKER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: youtube-tracker-config
+                  key: YOUTUBE_TRACKER_PORT
+            command:
+            - sh
+            - -c
+            - curl -X POST http://youtube-tracker:${YOUTUBE_TRACKER_PORT}/schedule
+          restartPolicy: Never
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2

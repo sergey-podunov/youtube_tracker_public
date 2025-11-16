@@ -6,8 +6,6 @@ namespace: prod
 bases:
   - ../../base
 
-namePrefix: prod-
-
 images:
   - name: ghcr.io/sergey-podunov/youtube_tracker
     newTag: v0.1.0
@@ -17,6 +15,7 @@ replicas:
     count: 3
 
 patches:
+  - path: cronjob-patch.yaml
   - target:
       kind: Ingress
       name: youtube-tracker
