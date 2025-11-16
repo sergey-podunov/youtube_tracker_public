@@ -24,6 +24,11 @@ spec:
                 configMapKeyRef:
                   name: youtube-tracker-config
                   key: YOUTUBE_TRACKER_PORT
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: google-api-key
+                  key: api-key
             - name: AUTH_DIR
               value: "/app/auth"
             - name: POSTGRES_USER
@@ -72,13 +77,5 @@ spec:
                   name: notify-secrets
                   key: SLACK_WEBHOOK_URL
                   optional: true
-          volumeMounts:
-            - name: auth-token
-              mountPath: /app/auth
-              readOnly: true
       imagePullSecrets:
         - name: ghcr-secret
-      volumes:
-        - name: auth-token
-          secret:
-            secretName: google-auth-token
