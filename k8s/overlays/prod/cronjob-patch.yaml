@@ -1,0 +1,7 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: statistics-scheduler
+spec:
+  suspend: false
+  schedule: "0 0 * * *"

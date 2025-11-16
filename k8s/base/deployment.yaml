@@ -20,7 +20,10 @@ spec:
             - containerPort: 8080
           env:
             - name: APP_PORT
-              value: "8080"
+              valueFrom:
+                configMapKeyRef:
+                  name: youtube-tracker-config
+                  key: YOUTUBE_TRACKER_PORT
             - name: AUTH_DIR
               value: "/app/auth"
             - name: POSTGRES_USER
