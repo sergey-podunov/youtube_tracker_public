@@ -37,7 +37,7 @@ type App struct {
 	httpServer *http.Server
 }
 
-func NewApp(ctx context.Context, port int, dbURL string, authDir string, notifierConfig notify.NotifierConfig, ytClient youtube.Client) (*App, error) {
+func NewApp(ctx context.Context, port int, dbURL string, googleApiKey string, notifierConfig notify.NotifierConfig, ytClient youtube.Client) (*App, error) {
 	logger.Info("Starting app", "dockerTag", helpers.GetBuildTag())
 
 	dbPool, err := createDbPool(ctx, logger, dbURL)
@@ -54,7 +54,7 @@ func NewApp(ctx context.Context, port int, dbURL string, authDir string, notifie
 		client = ytClient
 	} else {
 		notifier := notify.NewNotifier(logger, notifierConfig)
-		httpClient, err := youtube.NewHttpClient(ctx, notifier, authDir)
+		httpClient, err := youtube.NewHttpClient(ctx, notifier, googleApiKey)
 		if err != nil {
 			return nil, err
 		}
@@ -152,8 +152,14 @@ func main() {
 	ctx := context.Background()
 
 	portStr := helpers.GetEnvWithFallback("APP_PORT", "8080")
-	dbUrl := helpers.GetEnvWithFallback("DB_URL", "")
-	authDir := helpers.GetEnvWithFallback("AUTH_DIR", "")
+	dbUrl, err := helpers.GetRequiredEnv("DB_URL")
+	if err != nil {
+		log.Fatal(err)
+	}
+	googleApiKey, err := helpers.GetRequiredEnv("GOOGLE_API_KEY")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
@@ -166,7 +172,7 @@ func main() {
 		SlackWebhookURL: helpers.GetEnvWithFallback("SLACK_WEBHOOK_URL", ""),
 	}
 
-	app, err := NewApp(ctx, port, dbUrl, authDir, notifierConfig, nil)
+	app, err := NewApp(ctx, port, dbUrl, googleApiKey, notifierConfig, nil)
 
 	if err != nil {
 		log.Fatal(err)

@@ -24,25 +24,16 @@ spec:
                 configMapKeyRef:
                   name: youtube-tracker-config
                   key: YOUTUBE_TRACKER_PORT
-            - name: AUTH_DIR
-              value: "/app/auth"
-            - name: POSTGRES_USER
+            - name: GOOGLE_API_KEY
               valueFrom:
-                configMapKeyRef:
-                  name: postgres-config
-                  key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD
+                secretKeyRef:
+                  name: google-api-key
+                  key: api-key
+            - name: DB_URL
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret-config
-                  key: password
-            - name: POSTGRES_DB
-              valueFrom:
-                configMapKeyRef:
-                  name: postgres-config
-                  key: POSTGRES_DB
-            - name: DB_URL
-              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable"
+                  key: url
             - name: POOL_MAX_SIZE
               value: "10"
             - name: POOL_MIN_SIZE
@@ -72,13 +63,5 @@ spec:
                   name: notify-secrets
                   key: SLACK_WEBHOOK_URL
                   optional: true
-          volumeMounts:
-            - name: auth-token
-              mountPath: /app/auth
-              readOnly: true
       imagePullSecrets:
         - name: ghcr-secret
-      volumes:
-        - name: auth-token
-          secret:
-            secretName: google-auth-token

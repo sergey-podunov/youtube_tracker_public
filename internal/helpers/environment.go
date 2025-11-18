@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -17,4 +18,12 @@ func GetEnvWithFallback(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func GetRequiredEnv(key string) (string, error) {
+	if value, ok := os.LookupEnv(key); ok {
+		return value, nil
+	}
+	
+	return "", fmt.Errorf("%s environment variable is required", key)
 }
