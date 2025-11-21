@@ -60,6 +60,23 @@ func (r *internalMockChannelRepository) createChannel(ctx context.Context, q hel
 	return args.Get(0).(YoutubeChannel), args.Error(1)
 }
 
+func (r *MockChannelRepository) getChannelsPaginated(ctx context.Context, q helpers.Querier, offset int, limit int) ([]YoutubeChannel, error) {
+	args := r.Called(ctx, q, offset, limit)
+
+	var out []YoutubeChannel
+	if args.Get(0) != nil {
+		out = args.Get(0).([]YoutubeChannel)
+	}
+
+	return out, args.Error(1)
+}
+
+func (r *MockChannelRepository) getChannelsCount(ctx context.Context, q helpers.Querier) (int, error) {
+	args := r.Called(ctx, q)
+
+	return args.Get(0).(int), args.Error(1)
+}
+
 func (r *internalMockChannelRepository) getChannel(ctx context.Context, q helpers.Querier, channelID int64) (YoutubeChannel, bool, error) {
 	args := r.Called(ctx, q, channelID)
 

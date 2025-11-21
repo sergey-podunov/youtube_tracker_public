@@ -3,6 +3,7 @@ package stats
 import (
 	"context"
 	"log/slog"
+	"math"
 	"time"
 	"youtube_tracker/internal/helpers"
 
@@ -12,12 +13,22 @@ import (
 type ChannelService interface {
 	CreateChannel(ctx context.Context, channel YoutubeChannel) (YoutubeChannel, bool, error)
 	GetChannelStats(ctx context.Context, ID int64, from *time.Time, to *time.Time) (YoutubeChannelStatsInfo, bool, error)
+	GetChannels(ctx context.Context, page int, pageSize int) (YoutubeChannelsInfo, error)
 }
 
 type YoutubeChannelStatsInfo struct {
 	ID         int64
 	ChannelID  string
 	Statistics []YoutubeChannelStats
+}
+
+const DefaultPageSize = 20
+
+type YoutubeChannelsInfo struct {
+	CurrentPage int
+	TotalPages  int
+	PageSize    int
+	Channels    []YoutubeChannel
 }
 
 type YoutubeChannelService struct {
@@ -109,4 +120,74 @@ func (s *YoutubeChannelService) CreateChannel(ctx context.Context, channel Youtu
 	})
 
 	return createdYoutubeChannel, channelCreated, err
+}
+
+func (s *YoutubeChannelService) GetChannels(ctx context.Context, page int, pageSize int) (YoutubeChannelsInfo, error) {
+	var youtubeChannelsInfo YoutubeChannelsInfo
+
+	err := helpers.RunInTx(ctx, s.db, func(ctx context.Context, tx pgx.Tx) error {
+		offset := getOffsetByPage(page, pageSize)
+		pageSize = getPageSize(pageSize)
+		
+		channels, err := s.repository.getChannelsPaginated(ctx, tx, offset, pageSize)
+		if err != nil {
+			return err
+		}
+		
+		channelsCount, err := s.repository.getChannelsCount(ctx, tx)
+		if err != nil {
+			return err
+		}
+		
+		currentPage := getCurrentPage(page)
+		totalPages := getTotalPages(channelsCount, pageSize)
+		
+		youtubeChannelsInfo = YoutubeChannelsInfo{
+			CurrentPage: currentPage,
+			TotalPages:  totalPages,
+			PageSize:    pageSize,
+			Channels:    channels,
+		}
+		return nil
+	})
+	
+	return youtubeChannelsInfo, err
+}
+
+func getOffsetByPage(page int, pageSize int) int {
+	var offset int
+	if page > 0 {
+		if page == 1 {
+			offset = 0
+		} else {
+			offset = (page - 1) * pageSize
+		}
+	}
+	return offset
+}
+
+func getPageSize(pageSize int) int {
+	if pageSize == 0 {
+		pageSize = DefaultPageSize
+	} else if pageSize > DefaultPageSize {
+		pageSize = DefaultPageSize
+	}
+	return pageSize
+}
+
+func getCurrentPage(page int) int {
+	var currentPage int
+	if page == 0 {
+		currentPage = 1
+	} else {
+		currentPage = page
+	}
+	return currentPage
+}
+
+func getTotalPages(channelsCount int, pageSize int) int {
+	if channelsCount == 0 {
+		return 0
+	}
+	return int(math.Ceil(float64(channelsCount) / float64(pageSize)))
 }

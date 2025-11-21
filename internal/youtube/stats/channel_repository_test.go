@@ -21,6 +21,29 @@ func TestChannelRepoTestSuite(t *testing.T) {
 	suite.Run(t, new(ChannelRepoTestSuite))
 }
 
+func (suite *ChannelRepoTestSuite) insertChannel(channel YoutubeChannel) int64 {
+	t := suite.T()
+	ctx := suite.ctx
+
+	query := `
+	INSERT INTO youtube_channel (
+		channel_name,
+		external_id,
+		created_at
+	)
+	VALUES (
+		$1,
+		$2,
+		$3
+	) RETURNING youtube_channel_id`
+
+	var insertedID int64
+	err := suite.tx.QueryRow(ctx, query, channel.Name, channel.ExternalID, channel.CreatedAt).Scan(&insertedID)
+	require.NoError(t, err)
+
+	return insertedID
+}
+
 func (suite *ChannelRepoTestSuite) TestCreateChannel() {
 	t := suite.T()
 	ctx := suite.ctx
@@ -51,23 +74,9 @@ func (suite *ChannelRepoTestSuite) TestGetChannel() {
 	t := suite.T()
 	ctx := suite.ctx
 
-	query := `
-	INSERT INTO youtube_channel (
-		channel_name,
-		external_id,
-		created_at
-	)
-	VALUES (
-		$1,
-		$2,
-		$3
-	)
-	RETURNING youtube_channel_id`
-
 	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
-	var insertedID int64
-	err := suite.tx.QueryRow(ctx, query, "Google Developers", "UC-lHJZR3Gqxm24_Vd_AJ5Yw", createdAt).Scan(&insertedID)
-	require.NoError(t, err)
+	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Name: "Google Developers", CreatedAt: createdAt}
+	insertedID := suite.insertChannel(channelToInsert)
 
 	actualChannel, ok, err := suite.repository.GetChannel(ctx, insertedID)
 	require.NoError(t, err)
@@ -94,22 +103,9 @@ func (suite *ChannelRepoTestSuite) TestGetChannelByExternalId() {
 	ctx := suite.ctx
 	tx := suite.tx
 
-	query := `
-	INSERT INTO youtube_channel (
-		channel_name,
-		external_id,
-		created_at
-	)
-	VALUES (
-		$1,
-		$2,
-		$3
-	) RETURNING youtube_channel_id`
-
 	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
-	var insertedID int64
-	err := suite.tx.QueryRow(ctx, query, "Google Developers", "UC-lHJZR3Gqxm24_Vd_AJ5Yw", createdAt).Scan(&insertedID)
-	require.NoError(t, err)
+	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Name: "Google Developers", CreatedAt: createdAt}
+	insertedID := suite.insertChannel(channelToInsert)
 
 	actualChannel, ok, err := suite.repository.getChannelByExternalId(ctx, tx, "UC-lHJZR3Gqxm24_Vd_AJ5Yw")
 	require.NoError(t, err)
@@ -183,4 +179,51 @@ func (suite *ChannelRepoTestSuite) TestStoreSubscriptionsCount() {
 	assert.Equal(t, int64(3), actualChannelStats.SubscribersCount)
 	assert.False(t, actualChannelStats.CreatedAt.IsZero())
 	assert.Equal(t, channelStats.CreatedAt, actualChannelStats.CreatedAt)
+}
+
+func (suite *ChannelRepoTestSuite) TestGetChannelsPaginated() {
+	t := suite.T()
+	ctx := suite.ctx
+	tx := suite.tx
+	
+	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
+	
+	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Name: "Google Developers", CreatedAt: createdAt}
+	_ = suite.insertChannel(channelToInsert)
+	
+	channelToInsert = YoutubeChannel{ExternalID: "test_channel_youtube_id", Name: "Test channel", CreatedAt: createdAt}
+	insertedID := suite.insertChannel(channelToInsert)
+
+	actualChannels, err := suite.repository.getChannelsPaginated(ctx, tx, 1, 1)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, len(actualChannels))
+	actualChannel := actualChannels[0]
+	assert.Equal(t, insertedID, actualChannel.YoutubeChannelId)
+}
+
+func (suite *ChannelRepoTestSuite) TestGetChannelsPaginated_emptyDB() {
+	t := suite.T()
+	ctx := suite.ctx
+	tx := suite.tx
+
+	actualChannels, err := suite.repository.getChannelsPaginated(ctx, tx, 0, 10)
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, len(actualChannels))
+}
+
+func (suite *ChannelRepoTestSuite) TestGetChannelsCount() {
+	t := suite.T()
+	ctx := suite.ctx
+	tx := suite.tx
+
+	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
+	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Name: "Google Developers", CreatedAt: createdAt}
+	_ = suite.insertChannel(channelToInsert)
+	
+	actualChannelsCount, err := suite.repository.getChannelsCount(ctx, tx)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, actualChannelsCount)
 }

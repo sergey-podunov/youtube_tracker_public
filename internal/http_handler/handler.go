@@ -35,12 +35,6 @@ func (handler *MainHTTPHandler) withRequestIdLoggerContext(ctx context.Context, 
 	return fn(ctx, loggerWithRequestID)
 }
 
-func (handler *MainHTTPHandler) StatisticsGeneratePost(ctx context.Context) (*api.StatGenerationStarted, error) {
-	return &api.StatGenerationStarted{
-		StatusPath: "/status",
-	}, nil
-}
-
 func (handler *MainHTTPHandler) YoutubeChannelPost(ctx context.Context, req *api.YoutubeChannel) (api.YoutubeChannelPostRes, error) {
 	var resp api.YoutubeChannelPostRes
 
@@ -105,6 +99,32 @@ func (handler *MainHTTPHandler) YoutubeChannelIDGet(ctx context.Context, params 
 	})
 
 	return res, err
+}
+
+func (handler *MainHTTPHandler) YoutubeChannelsGet(ctx context.Context, params api.YoutubeChannelsGetParams) (*api.YoutubeChannelList, error) {
+	page := params.Page.Value
+	count := params.PageSize.Value
+	channelsInfo, err := handler.channelService.GetChannels(ctx, page, count)
+	if err != nil {
+		return nil, err
+	}
+	
+	channels := make([]api.YoutubeChannel, len(channelsInfo.Channels))
+	for i, channel := range channelsInfo.Channels {
+		channels[i] = api.YoutubeChannel{
+			ID:        api.NewOptInt64(channel.YoutubeChannelId),
+			Name:      channel.Name,
+			YoutubeID: channel.ExternalID,
+			CreatedAt: api.NewOptString(channel.CreatedAt.Format(time.RFC3339)),
+		}
+	}
+
+	return &api.YoutubeChannelList{
+		CurrentPage: channelsInfo.CurrentPage,
+		PageSize:    channelsInfo.PageSize,
+		TotalPages:  channelsInfo.TotalPages,
+		Channels:    channels,
+	}, nil
 }
 
 var startTime = time.Now()

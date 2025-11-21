@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 	"youtube_tracker/internal/helpers"
-	
+
 	"github.com/jackc/pgx/v5"
 )
 
@@ -19,6 +19,8 @@ type ChannelRepository interface {
 type internalChannelRepository interface {
 	ChannelRepository
 	createChannel(ctx context.Context, q helpers.Querier, channel YoutubeChannel) (YoutubeChannel, error)
+	getChannelsPaginated(ctx context.Context, q helpers.Querier, offset int, limit int) ([]YoutubeChannel, error)
+	getChannelsCount(ctx context.Context, q helpers.Querier) (int, error)
 	getChannel(ctx context.Context, q helpers.Querier, channelID int64) (YoutubeChannel, bool, error)
 	getChannelStat(ctx context.Context, q helpers.Querier, channelID int64) ([]YoutubeChannelStats, error)
 	getChannelByExternalId(ctx context.Context, q helpers.Querier, externalID string) (YoutubeChannel, bool, error)
@@ -29,7 +31,7 @@ type Database interface {
 }
 
 type YoutubeChannelRepository struct {
-	db Database
+	db     Database
 	logger *slog.Logger
 }
 
@@ -37,7 +39,7 @@ const channelRepositoryComponentName = "YoutubeChannelRepository"
 
 func NewChannelRepository(logger *slog.Logger, db Database) *YoutubeChannelRepository {
 	return &YoutubeChannelRepository{
-		db: db,
+		db:     db,
 		logger: logger.With(slog.String("component", channelRepositoryComponentName)),
 	}
 }
@@ -130,7 +132,7 @@ func (r *YoutubeChannelRepository) getChannelByExternalId(ctx context.Context, q
 
 func (r *YoutubeChannelRepository) StoreSubscriptionsCount(ctx context.Context, stats YoutubeChannelStats) (YoutubeChannelStats, error) {
 	logger := helpers.LoggerFromContext(ctx, channelRepositoryComponentName, r.logger)
-	
+
 	query := `
 		INSERT INTO youtube_channel_stat (
 			youtube_channel_id, 
@@ -169,7 +171,7 @@ func (r *YoutubeChannelRepository) GetChannels(ctx context.Context, checkedBefor
 		FROM 
 			youtube_channel
 		WHERE (checked_at <= $1 or checked_at is null)
-		limit $2`
+		LIMIT $2`
 	rows, err := r.db.Query(ctx, query, checkedBefore, count)
 
 	if err != nil {
@@ -194,6 +196,54 @@ func (r *YoutubeChannelRepository) GetChannels(ctx context.Context, checkedBefor
 	}
 
 	return channels, nil
+}
+
+func (r *YoutubeChannelRepository) getChannelsPaginated(ctx context.Context, q helpers.Querier, offset int, limit int) ([]YoutubeChannel, error) {
+	query := `
+		SELECT
+			youtube_channel_id,
+			channel_name,
+			external_id,
+			created_at,
+			checked_at
+		FROM
+			youtube_channel
+		OFFSET $1
+		LIMIT $2`
+	rows, err := r.db.Query(ctx, query, offset, limit)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var channels []YoutubeChannel
+	for rows.Next() {
+		var channel YoutubeChannel
+		if err := rows.Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalID, &channel.CreatedAt, &channel.CheckedAt); err != nil {
+			return nil, err
+		}
+
+		channels = append(channels, channel)
+	}
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	return channels, nil
+}
+
+func (r *YoutubeChannelRepository) getChannelsCount(ctx context.Context, q helpers.Querier) (int, error) {
+	query := `SELECT count(*) FROM youtube_channel`
+
+	var count int
+	err := q.QueryRow(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 func (r *YoutubeChannelRepository) getChannelStat(ctx context.Context, q helpers.Querier, channelID int64) ([]YoutubeChannelStats, error) {

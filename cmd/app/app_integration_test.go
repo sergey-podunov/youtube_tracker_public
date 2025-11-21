@@ -112,6 +112,74 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		assert.Equal(t, channelPostResp.ID.Value, channelGetResp.ID.Value)
 	})
 
+	t.Run("Test /youtube/channels without params", func(t *testing.T) {
+		channelPostResp := &api.YoutubeChannel{}
+		respCode, respStatus := executePost(
+			t,
+			url+"/youtube/channel",
+			&api.YoutubeChannel{
+				Name:      "Test Channel for list",
+				YoutubeID: "TestYoutubeListID",
+			},
+			channelPostResp,
+		)
+
+		newChannelID := channelPostResp.ID.Value
+
+		channelListGetResp := api.YoutubeChannelList{}
+		respCode, respStatus = executeGet(t, url+"/youtube/channels", &channelListGetResp)
+
+		assert.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
+
+		assert.Equal(t, channelListGetResp.CurrentPage, 1)
+		assert.Equal(t, channelListGetResp.PageSize, 20)
+		assert.Equal(t, channelListGetResp.TotalPages, 1)
+
+		var channelIDs []int64
+		for _, item := range channelListGetResp.Channels {
+			if item.ID.Set { // Check if the ID value is set
+				channelIDs = append(channelIDs, item.ID.Value)
+			}
+		}
+
+		assert.GreaterOrEqual(t, len(channelListGetResp.Channels), 1)
+		assert.Contains(t, channelIDs, newChannelID)
+	})
+	
+		t.Run("Test /youtube/channels with params endpoint", func(t *testing.T) {
+		channelPostResp := &api.YoutubeChannel{}
+		respCode, respStatus := executePost(
+			t,
+			url+"/youtube/channel",
+			&api.YoutubeChannel{
+				Name:      "Test Channel for list with params",
+				YoutubeID: "TestYoutubeListID",
+			},
+			channelPostResp,
+		)
+
+		newChannelID := channelPostResp.ID.Value
+
+		channelListGetResp := api.YoutubeChannelList{}
+		respCode, respStatus = executeGet(t, url+"/youtube/channels?page=1&page_size=5", &channelListGetResp)
+
+		assert.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
+
+		assert.Equal(t, channelListGetResp.CurrentPage, 1)
+		assert.Equal(t, channelListGetResp.PageSize, 5)
+		assert.Equal(t, channelListGetResp.TotalPages, 1)
+
+		var channelIDs []int64
+		for _, item := range channelListGetResp.Channels {
+			if item.ID.Set { // Check if the ID value is set
+				channelIDs = append(channelIDs, item.ID.Value)
+			}
+		}
+
+		assert.GreaterOrEqual(t, len(channelListGetResp.Channels), 1)
+		assert.Contains(t, channelIDs, newChannelID)
+	})
+
 	t.Run("/youtube/channel posts conflict", func(t *testing.T) {
 		executePost(
 			t,
