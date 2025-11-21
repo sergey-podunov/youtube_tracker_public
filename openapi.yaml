@@ -85,6 +85,32 @@ paths:
         '404':
           description: Not found
           content: { }
+  /youtube/channels:
+    get:
+      description: Get all Youtube channels
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            format: int
+            minimum: 1
+          required: false
+          description: Page number (starts from 1)
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            format: int
+          required: false
+          description: Number of items to return per page
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YoutubeChannelList'
   /schedule:
     post:
       description: Initiate statistics generation
@@ -225,4 +251,27 @@ components:
             - RUNNING
             - ERROR
             - COMPLETE
-          
+    YoutubeChannelList:
+      description: List of Youtube channels with pagination info
+      type: object
+      required:
+        - currentPage
+        - pageSize
+        - totalPages
+      properties:
+        currentPage:
+          type: integer
+          format: int
+          description: Current page number
+        pageSize:
+          type: integer
+          format: int
+          description: Number of items per page
+        totalPages:
+          type: integer
+          format: int
+          description: Total amount of pages
+        channels:
+          type: array
+          items:
+            $ref: '#/components/schemas/YoutubeChannel'

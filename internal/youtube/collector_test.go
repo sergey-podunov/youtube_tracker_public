@@ -9,7 +9,7 @@ import (
 	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
 	"youtube_tracker/internal/youtube/test_utils"
-	
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"

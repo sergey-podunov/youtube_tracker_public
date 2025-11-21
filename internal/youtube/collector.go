@@ -120,28 +120,28 @@ func (s *WorkerCollector) runJob(ctx context.Context, job *job) {
 	jobsChan := make(chan int64, len(channelIDs))
 	resultChan := make(chan result, len(channelIDs))
 	completeChan := make(chan bool, 1)
-	
+
 	backgroundCtx := helpers.CreateBackgroundContext(ctx, logger)
-	
+
 	for i := 0; i < len(s.workers); i++ {
 		go func() {
 			for channelID := range jobsChan {
 				logger.Info("processing channel", slog.Int64("job_id", job.ID), slog.Int64("channel_id", channelID))
 				err := s.workers[i].GetChannelStats(backgroundCtx, channelID)
-				
+
 				if err != nil {
 					logger.Error("Error processing channel", slog.Int64("job_id", job.ID), slog.Int64("channel_id", channelID), "err", err)
 				}
-				
+
 				res := result{channelID: channelID, err: err}
 				logger.Info("channel processed",
 					slog.Int64("job_id", job.ID), slog.Int64("channel_id", channelID), slog.Any("result", res))
-				
+
 				resultChan <- res
 			}
 		}()
 	}
-	
+
 	go func() {
 		for result := range resultChan {
 			job.Mu.Lock()
@@ -152,26 +152,26 @@ func (s *WorkerCollector) runJob(ctx context.Context, job *job) {
 			} else {
 				job.Ready++
 			}
-			
+
 			if job.Ready+job.Error == job.Total {
 				logger.Info("job completed", slog.Int64("job_id", job.ID))
 				job.Status = StatusComplete
-				
+
 				completeChan <- true
 			}
-			
+
 			job.Mu.Unlock()
 		}
 	}()
-	
+
 	for _, channelID := range channelIDs {
 		jobsChan <- channelID
 	}
-	
+
 	close(jobsChan)
-	
+
 	<-completeChan
-	
+
 	logger.Info("closing job result channel", slog.Int64("job_id", job.ID))
 	close(completeChan)
 }
