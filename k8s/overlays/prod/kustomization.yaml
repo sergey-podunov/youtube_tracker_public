@@ -16,6 +16,7 @@ replicas:
 
 patches:
   - path: cronjob-patch.yaml
+  - path: deployment-patch.yaml
   - target:
       kind: Ingress
       name: youtube-tracker

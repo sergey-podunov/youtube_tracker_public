@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: youtube-tracker
+spec:
+  template:
+    spec:
+      containers:
+        - name: youtube-tracker
+          env:
+            - name: ALLOWED_ORIGIN
+              value: "https://statistics-tracker.io"

@@ -15,6 +15,7 @@ replicas:
     count: 1
 
 patches:
+  - path: deployment-patch.yaml
   - target:
       kind: Ingress
       name: youtube-tracker

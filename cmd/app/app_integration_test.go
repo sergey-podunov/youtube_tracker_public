@@ -316,7 +316,7 @@ func createPgContainer(ctx context.Context) *helpers.PostgresContainer {
 }
 
 func createApp(ctx context.Context, host string, port int, dbUrl string) *App {
-	app, err := NewApp(ctx, port, dbUrl, "", notify.NotifierConfig{}, mockClient)
+	app, err := NewApp(ctx, port, dbUrl, "", "*", notify.NotifierConfig{}, mockClient)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -151,4 +151,7 @@ This agent will:
 The agent reports success/failure for each step and suggests fixes for any issues.
 
 ## Misc
+Don't implement tests when you are asked to implement code.
+Don't implement code when you are asked to implement tests.
+
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.

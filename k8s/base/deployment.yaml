@@ -63,5 +63,7 @@ spec:
                   name: notify-secrets
                   key: SLACK_WEBHOOK_URL
                   optional: true
+            - name: ALLOWED_ORIGIN
+              value: ""
       imagePullSecrets:
         - name: ghcr-secret

@@ -56,6 +56,7 @@ jobs:
           - Call out security issues (auth, injection, secrets, unsafe parsing)
           - Suggest improvements in readability/maintainability
           - Keep signal high: only mention issues you are confident about
+          - It should be no commented code or unused code in PR
           
           Output format (Markdown):
           1) Summary (3-6 bullets)
