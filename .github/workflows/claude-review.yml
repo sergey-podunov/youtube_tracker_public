@@ -1,0 +1,116 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch PR diff
+        id: prdiff
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+
+            const diff = await github.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+              owner,
+              repo,
+              pull_number: pr.number,
+              mediaType: { format: 'diff' }
+            });
+
+            // Keep payload reasonable; you can tune this limit.
+            const maxChars = 120000;
+            const body = (diff.data || '').toString();
+            const trimmed = body.length > maxChars ? body.slice(0, maxChars) + "\n\n[Diff truncated]\n" : body;
+
+            core.setOutput('diff', trimmed);
+
+      - name: Ask Claude to review
+        id: claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DIFF: ${{ steps.prdiff.outputs.diff }}
+        run: |
+          set -euo pipefail
+
+          PROMPT=$(cat <<'EOF'
+          You are a senior software engineer reviewing a GitHub Pull Request.
+          
+          Review goals:
+          - Identify likely bugs, edge cases, and unsafe behavior
+          - Call out security issues (auth, injection, secrets, unsafe parsing)
+          - Suggest improvements in readability/maintainability
+          - Keep signal high: only mention issues you are confident about
+          
+          Output format (Markdown):
+          1) Summary (3-6 bullets)
+          2) High-risk issues (with file/path hints if possible)
+          3) Medium/low suggestions
+          If the diff is truncated, mention that and limit conclusions.
+          
+          Here is the PR diff:
+          EOF
+          )
+          # Create JSON safely with jq
+          PAYLOAD=$(jq -n \
+            --arg model "claude-sonnet-4-5" \
+            --arg prompt "$PROMPT" \
+            --arg diff "$DIFF" \
+            '{
+              model: $model,
+              max_tokens: 1200,
+              messages: [
+                {role: "user", content: ($prompt + "\n\n" + $diff)}
+              ]
+            }')
+
+          RESP=$(curl -sS https://api.anthropic.com/v1/messages \
+            -H "content-type: application/json" \
+            -H "x-api-key: ${ANTHROPIC_API_KEY}" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "$PAYLOAD")
+          
+          if echo "$RESP" | jq -e '.error' > /dev/null 2>&1; then
+            echo "API Error: $(echo "$RESP" | jq -r '.error.message')"
+            exit 1
+          fi
+
+          # Extract text content (Anthropic returns an array of content blocks)
+          REVIEW=$(echo "$RESP" | jq -r '.content[]? | select(.type=="text") | .text' | sed '/^null$/d')
+
+          if [ -z "$REVIEW" ]; then
+            echo "Failed to parse Claude response:"
+            echo "$RESP"
+            exit 1
+          fi
+
+          {
+            echo "review<<END_CLAUDE_REVIEW"
+            echo "$REVIEW"
+            echo "END_CLAUDE_REVIEW"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update PR comment (sticky)
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            <!-- claude-pr-review -->
+            ## Claude Review
+            ${{ steps.claude.outputs.review }}
+          edit-mode: replace
