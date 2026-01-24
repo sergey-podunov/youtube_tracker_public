@@ -11,7 +11,7 @@ import (
 	"time"
 	"youtube_tracker/internal/api"
 	"youtube_tracker/internal/helpers"
-	mainHanler "youtube_tracker/internal/http_handler"
+	mainHandler "youtube_tracker/internal/http_handler"
 	"youtube_tracker/internal/notify"
 	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
@@ -37,7 +37,8 @@ type App struct {
 	httpServer *http.Server
 }
 
-func NewApp(ctx context.Context, port int, dbURL string, googleApiKey string, notifierConfig notify.NotifierConfig, ytClient youtube.Client) (*App, error) {
+func NewApp(ctx context.Context, port int, dbURL string, googleApiKey string, allowedOrigin string, notifierConfig notify.NotifierConfig,
+	ytClient youtube.Client) (*App, error) {
 	logger.Info("Starting app", "dockerTag", helpers.GetBuildTag())
 
 	dbPool, err := createDbPool(ctx, logger, dbURL)
@@ -68,11 +69,11 @@ func NewApp(ctx context.Context, port int, dbURL string, googleApiKey string, no
 	}
 
 	collector := youtube.NewStatisticsCollector(logger, channelRepository, workers, 10)
-	httpHandler := mainHanler.NewHTTPHandler(logger, collector, channelService, channelRepository)
+	httpHandler := mainHandler.NewHTTPHandler(logger, collector, channelService, channelRepository)
 
 	chainMiddleware := middleware.ChainMiddlewares(
-		mainHanler.RequestIDGenerator,
-		mainHanler.NewRequestLogger(logger),
+		mainHandler.RequestIDGenerator,
+		mainHandler.NewRequestLogger(logger),
 	)
 
 	srv, err := api.NewServer(httpHandler, api.WithMiddleware(chainMiddleware))
@@ -80,9 +81,14 @@ func NewApp(ctx context.Context, port int, dbURL string, googleApiKey string, no
 		return nil, err
 	}
 
+	corsHandler, err := mainHandler.NewCORSHandler(srv, allowedOrigin)
+	if err != nil {
+		return nil, err
+	}
+
 	httpServer := &http.Server{
 		Addr:         ":" + strconv.Itoa(port),
-		Handler:      srv,
+		Handler:      corsHandler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
@@ -160,6 +166,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	allowedOrigin, err := helpers.GetRequiredEnv("ALLOWED_ORIGIN")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
@@ -172,7 +182,7 @@ func main() {
 		SlackWebhookURL: helpers.GetEnvWithFallback("SLACK_WEBHOOK_URL", ""),
 	}
 
-	app, err := NewApp(ctx, port, dbUrl, googleApiKey, notifierConfig, nil)
+	app, err := NewApp(ctx, port, dbUrl, googleApiKey, allowedOrigin, notifierConfig, nil)
 
 	if err != nil {
 		log.Fatal(err)
