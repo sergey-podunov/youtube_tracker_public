@@ -9,11 +9,21 @@ set -euo pipefail
 #   - SealedSecrets controller running in the cluster
 #
 # Usage:
-#   ./seal-secrets.sh              # Seal for default environment
-#   ./seal-secrets.sh prod         # Seal for prod environment
+#   ./seal-secrets.sh                              # Seal all secrets for default environment
+#   ./seal-secrets.sh prod                         # Seal all secrets for prod environment
+#   ./seal-secrets.sh default/postgres-secrets.yaml # Seal a single file (env/filename)
 
-ENV="${1:-default}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SINGLE_FILE=""
+
+# Check if argument contains a path separator (env/file)
+if [[ "${1:-}" == */* ]]; then
+  ENV="${1%%/*}"
+  SINGLE_FILE="$SCRIPT_DIR/k8s/secrets-plain/$1"
+else
+  ENV="${1:-default}"
+fi
+
 SECRETS_DIR="$SCRIPT_DIR/k8s/secrets-plain/$ENV"
 SEALED_DIR="$SCRIPT_DIR/k8s/sealed-secrets/$ENV"
 
@@ -46,17 +56,30 @@ fi
 
 mkdir -p "$SEALED_DIR"
 
-FOUND=0
-
-for secret_file in "$SECRETS_DIR"/*.yaml "$SECRETS_DIR"/*.yml; do
-  [ -f "$secret_file" ] || continue
-
-  # Skip .example files
-  if [[ "$secret_file" == *.example ]]; then
-    continue
+# Build file list: single file or all files in the directory
+if [ -n "$SINGLE_FILE" ]; then
+  if [ ! -f "$SINGLE_FILE" ]; then
+    echo "Error: File not found: $SINGLE_FILE"
+    exit 1
   fi
+  FILE_LIST=("$SINGLE_FILE")
+else
+  FILE_LIST=()
+  for f in "$SECRETS_DIR"/*.yaml "$SECRETS_DIR"/*.yml; do
+    [ -f "$f" ] || continue
+    [[ "$f" == *.example ]] && continue
+    FILE_LIST+=("$f")
+  done
+fi
 
-  FOUND=1
+if [ ${#FILE_LIST[@]} -eq 0 ]; then
+  echo "No plain secret files found in $SECRETS_DIR/"
+  echo "Copy a .example template and fill in real values:"
+  echo "  cp k8s/secrets-plain/postgres-secrets.yaml.example $SECRETS_DIR/postgres-secrets.yaml"
+  exit 1
+fi
+
+for secret_file in "${FILE_LIST[@]}"; do
   filename=$(basename "$secret_file")
   # Derive sealed filename: e.g., postgres-secrets.yaml -> 000-postgres-sealed-secret.yaml
   base="${filename%.*}"
@@ -87,13 +110,6 @@ for secret_file in "$SECRETS_DIR"/*.yaml "$SECRETS_DIR"/*.yml; do
 
   echo "  Created $SEALED_DIR/$sealed_filename"
 done
-
-if [ "$FOUND" -eq 0 ]; then
-  echo "No plain secret files found in $SECRETS_DIR/"
-  echo "Copy a .example template and fill in real values:"
-  echo "  cp k8s/secrets-plain/postgres-secrets.yaml.example $SECRETS_DIR/postgres-secrets.yaml"
-  exit 1
-fi
 
 echo ""
 echo "Done. Sealed secrets are in $SEALED_DIR/"
