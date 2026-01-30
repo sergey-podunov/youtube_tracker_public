@@ -80,10 +80,9 @@ fi
 # Apply base k8s resources (postgres, etc.)
 echo "Applying base resources..."
 for file in $(ls "$K8S_DIR" | grep -E '\.ya?ml$' | sort); do
-  # Skip base and overlays directories
   if [[ -f "$K8S_DIR/$file" ]]; then
     # Skip plain secret files (sealed secrets are used instead)
-    if [[ "$file" =~ ^000-.*secrets?\.(yml|yaml)$ ]] && [[ ! "$file" =~ sealed ]]; then
+    if [[ "$file" =~ ^000-.*secrets?\.(yml|yaml)$ ]]; then
       echo "Skipping plain secret file $file (use sealed secrets instead)"
       continue
     fi
@@ -97,6 +96,22 @@ for file in $(ls "$K8S_DIR" | grep -E '\.ya?ml$' | sort); do
     fi
   fi
 done
+
+# Apply environment-specific sealed secrets
+SEALED_DIR="$K8S_DIR/sealed-secrets/$ENV"
+if [ -d "$SEALED_DIR" ]; then
+  echo "Applying sealed secrets for $ENV..."
+  for file in $(ls "$SEALED_DIR" | grep -E '\.ya?ml$' | sort); do
+    echo "Applying sealed secret $file..."
+    kubectl apply -f "$SEALED_DIR/$file"
+    if [ $? -ne 0 ]; then
+      echo "Failed to apply sealed secret $file. Exiting."
+      exit 1
+    fi
+  done
+else
+  echo "Warning: No sealed secrets directory found at $SEALED_DIR"
+fi
 
 # Apply environment-specific app resources using Kustomize
 echo "Applying $ENV environment app resources..."

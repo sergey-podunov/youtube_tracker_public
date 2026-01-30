@@ -131,19 +131,25 @@ go test -v -tags=integration,database -run TestName ./cmd/app/...
 
 ## Secrets Management
 
-Secrets are managed via [Bitnami SealedSecrets](https://github.com/bitnami-labs/sealed-secrets). Plain secret templates are in `k8s/secrets-plain/*.example`. The SealedSecrets controller is installed automatically by `apply-k8s.sh`.
+Secrets are managed via [Bitnami SealedSecrets](https://github.com/bitnami-labs/sealed-secrets). Each environment (default, prod) has its own set of sealed secrets with different credentials. The SealedSecrets controller is installed automatically by `apply-k8s.sh`.
 
 - `seal-secrets.sh` - Helper script to encrypt secrets using `kubeseal`
-- `k8s/secrets-plain/` - Plain secret templates (gitignored, never commit actual values)
-- `k8s/000-*-sealed-secret.yaml` - Encrypted secrets (safe to commit)
-- `k8s/000-*-sealed-secret.yaml.example` - Reference examples of sealed secret structure
+- `k8s/secrets-plain/*.example` - Shared plain secret templates (committed)
+- `k8s/secrets-plain/default/` - Plain secrets for dev environment (gitignored)
+- `k8s/secrets-plain/prod/` - Plain secrets for prod environment (gitignored)
+- `k8s/sealed-secrets/default/` - Encrypted secrets for dev (safe to commit)
+- `k8s/sealed-secrets/prod/` - Encrypted secrets for prod (safe to commit)
 
 ### Workflow
 
-1. Copy a `.example` to `.yaml` in `k8s/secrets-plain/`, fill in real base64-encoded values
-2. Run `./seal-secrets.sh` (or `./seal-secrets.sh prod` for prod namespace)
-3. Commit the generated `k8s/000-*-sealed-secret.yaml` files
-4. Deploy with `make k8s` or `./apply-k8s.sh`
+1. Copy `.example` templates into the target environment directory and fill in values:
+   ```bash
+   cp k8s/secrets-plain/postgres-secrets.yaml.example k8s/secrets-plain/default/postgres-secrets.yaml
+   # Edit the file with real base64-encoded values
+   ```
+2. Run `./seal-secrets.sh` (or `./seal-secrets.sh prod` for prod)
+3. Commit the generated files in `k8s/sealed-secrets/<env>/`
+4. Deploy with `make k8s` or `./apply-k8s.sh [default|prod]`
 
 ## Environment Requirements
 - Go 1.24+
@@ -171,3 +177,4 @@ Don't implement tests when you are asked to implement code.
 Don't implement code when you are asked to implement tests.
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+Add files to git if they should be under version control.
