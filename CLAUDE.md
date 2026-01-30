@@ -129,6 +129,22 @@ go test -v -tags=integration,database -run TestName ./cmd/app/...
 - Integration tests use `helpers.CreatePostgresContainer()` for database setup
 - YouTube client is mocked in integration tests via `MockYoutubeClient`
 
+## Secrets Management
+
+Secrets are managed via [Bitnami SealedSecrets](https://github.com/bitnami-labs/sealed-secrets). Plain secret templates are in `k8s/secrets-plain/*.example`. The SealedSecrets controller is installed automatically by `apply-k8s.sh`.
+
+- `seal-secrets.sh` - Helper script to encrypt secrets using `kubeseal`
+- `k8s/secrets-plain/` - Plain secret templates (gitignored, never commit actual values)
+- `k8s/000-*-sealed-secret.yaml` - Encrypted secrets (safe to commit)
+- `k8s/000-*-sealed-secret.yaml.example` - Reference examples of sealed secret structure
+
+### Workflow
+
+1. Copy a `.example` to `.yaml` in `k8s/secrets-plain/`, fill in real base64-encoded values
+2. Run `./seal-secrets.sh` (or `./seal-secrets.sh prod` for prod namespace)
+3. Commit the generated `k8s/000-*-sealed-secret.yaml` files
+4. Deploy with `make k8s` or `./apply-k8s.sh`
+
 ## Environment Requirements
 - Go 1.24+
 - k8s installed and running (for integration tests)

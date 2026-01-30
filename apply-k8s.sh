@@ -3,6 +3,13 @@
 # Parse environment argument (default: default)
 ENV="${1:-default}"
 
+CURRENT_CTX=$(kubectl config current-context)
+if [[ "$CURRENT_CTX" == *"gke"* ]]; then
+  echo "⚠️ WARNING: You are connected to PROD (GKE). Continue? (y/n)"
+  read -r confirm
+  if [[ $confirm != "y" ]]; then exit 1; fi
+fi
+
 # Validate environment
 if [[ "$ENV" != "default" && "$ENV" != "prod" ]]; then
   echo "Error: Invalid environment '$ENV'. Use 'default' or 'prod'."
@@ -41,6 +48,26 @@ else
   echo "Atlas Operator is already installed."
 fi
 
+# Check if Sealed Secrets controller is already installed via Helm
+if ! helm status sealed-secrets-controller -n kube-system > /dev/null 2>&1; then
+  echo "Sealed Secrets controller not found, installing..."
+  helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
+  helm install sealed-secrets-controller sealed-secrets/sealed-secrets \
+    --namespace kube-system \
+    --set-string fullnameOverride=sealed-secrets-controller
+  if [ $? -ne 0 ]; then
+    echo "Failed to install Sealed Secrets controller. Exiting."
+    exit 1
+  fi
+  echo "Waiting for Sealed Secrets controller to be ready..."
+  kubectl wait --namespace kube-system \
+    --for=condition=ready pod \
+    --selector=app.kubernetes.io/name=sealed-secrets \
+    --timeout=120s
+else
+  echo "Sealed Secrets controller is already installed."
+fi
+
 # Set the directory containing the Kubernetes manifests
 K8S_DIR="./k8s"
 
@@ -55,6 +82,11 @@ echo "Applying base resources..."
 for file in $(ls "$K8S_DIR" | grep -E '\.ya?ml$' | sort); do
   # Skip base and overlays directories
   if [[ -f "$K8S_DIR/$file" ]]; then
+    # Skip plain secret files (sealed secrets are used instead)
+    if [[ "$file" =~ ^000-.*secrets?\.(yml|yaml)$ ]] && [[ ! "$file" =~ sealed ]]; then
+      echo "Skipping plain secret file $file (use sealed secrets instead)"
+      continue
+    fi
     echo "Applying $file..."
     kubectl apply -f "$K8S_DIR/$file"
 
