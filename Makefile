@@ -24,10 +24,13 @@ clean:
 test:
 	go test -v ./...
 
-integration_test:
+extract-schema:
+	go run AtlasSqlExtractor.go
+
+integration_test: extract-schema
 	go test -v -tags=integration,database ./...
 
-database_test:
+database_test: extract-schema
 	go test -v -tags=database ./...
 
 thirdparty_test:
@@ -48,8 +51,5 @@ lint:
 docker-build:
 	docker build -t ${DOCKER_IMAGE_NAME} .
 
-atlas-schema:
-	go run -tags=atlas_schema AtlasSchemaGenerator.go
-
-k8s: atlas-schema
+k8s:
 	./apply-k8s.sh

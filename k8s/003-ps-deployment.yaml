@@ -24,7 +24,6 @@ spec:
                 secretKeyRef:
                   name: postgres-secret-config
                   key: ps_user-pass
-
             - name: POSTGRES_DB
               valueFrom:
                 configMapKeyRef:
@@ -35,10 +34,25 @@ spec:
                 configMapKeyRef:
                   key: POSTGRES_USER
                   name: postgres-config
+            - name: ATLAS_APP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret-config
+                  key: atlas_app-pass
+            - name: YOUTUBE_TRACKER_APP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret-config
+                  key: youtube_tracker_app-pass
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgresdata
+            - mountPath: /docker-entrypoint-initdb.d
+              name: init-script
       volumes:
         - name: postgresdata
           persistentVolumeClaim:
             claimName: postgres-volume-claim
+        - name: init-script
+          configMap:
+            name: postgres-init-script

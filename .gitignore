@@ -17,4 +17,5 @@ api
 youtube_tracker.exe
 .DS_Store
 /youtube_tracker
-/database/atlas-schema.yaml
+backup_*.sql
+/testdata/schema.sql
