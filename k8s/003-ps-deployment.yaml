@@ -44,6 +44,11 @@ spec:
                 secretKeyRef:
                   name: postgres-secret-config
                   key: youtube_tracker_app-pass
+            - name: DEV_USER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret-config
+                  key: dev_user-pass
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgresdata

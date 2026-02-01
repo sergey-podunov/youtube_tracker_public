@@ -26,4 +26,12 @@ data:
         GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO youtube_tracker_app;
       ALTER DEFAULT PRIVILEGES FOR ROLE atlas_app IN SCHEMA public
         GRANT USAGE, SELECT ON SEQUENCES TO youtube_tracker_app;
+
+      -- Dev user: read-only access for production data inspection
+      CREATE USER dev_user WITH PASSWORD '$DEV_USER_PASS';
+      GRANT CONNECT ON DATABASE $POSTGRES_DB TO dev_user;
+      GRANT USAGE ON SCHEMA public TO dev_user;
+      GRANT SELECT ON ALL TABLES IN SCHEMA public TO dev_user;
+      ALTER DEFAULT PRIVILEGES FOR ROLE atlas_app IN SCHEMA public
+        GRANT SELECT ON TABLES TO dev_user;
     EOSQL
