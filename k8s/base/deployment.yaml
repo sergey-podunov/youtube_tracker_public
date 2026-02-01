@@ -33,7 +33,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret-config
-                  key: url
+                  key: youtube_tracker_app-url
             - name: POOL_MAX_SIZE
               value: "10"
             - name: POOL_MIN_SIZE

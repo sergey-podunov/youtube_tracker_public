@@ -129,6 +129,28 @@ go test -v -tags=integration,database -run TestName ./cmd/app/...
 - Integration tests use `helpers.CreatePostgresContainer()` for database setup
 - YouTube client is mocked in integration tests via `MockYoutubeClient`
 
+## Secrets Management
+
+Secrets are managed via [Bitnami SealedSecrets](https://github.com/bitnami-labs/sealed-secrets). Each environment (default, prod) has its own set of sealed secrets with different credentials. The SealedSecrets controller is installed automatically by `apply-k8s.sh`.
+
+- `seal-secrets.sh` - Helper script to encrypt secrets using `kubeseal`
+- `k8s/secrets-plain/*.example` - Shared plain secret templates (committed)
+- `k8s/secrets-plain/default/` - Plain secrets for dev environment (gitignored)
+- `k8s/secrets-plain/prod/` - Plain secrets for prod environment (gitignored)
+- `k8s/sealed-secrets/default/` - Encrypted secrets for dev (safe to commit)
+- `k8s/sealed-secrets/prod/` - Encrypted secrets for prod (safe to commit)
+
+### Workflow
+
+1. Copy `.example` templates into the target environment directory and fill in values:
+   ```bash
+   cp k8s/secrets-plain/postgres-secrets.yaml.example k8s/secrets-plain/default/postgres-secrets.yaml
+   # Edit the file with real base64-encoded values
+   ```
+2. Run `./seal-secrets.sh` (or `./seal-secrets.sh prod` for prod)
+3. Commit the generated files in `k8s/sealed-secrets/<env>/`
+4. Deploy with `make k8s` or `./apply-k8s.sh [default|prod]`
+
 ## Environment Requirements
 - Go 1.24+
 - k8s installed and running (for integration tests)
@@ -150,8 +172,11 @@ This agent will:
 
 The agent reports success/failure for each step and suggests fixes for any issues.
 
+Always run the verify agent after completing code changes to validate the build and tests.
+
 ## Misc
 Don't implement tests when you are asked to implement code.
 Don't implement code when you are asked to implement tests.
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+Add files to git if they should be under version control.

@@ -29,7 +29,7 @@ func CreatePostgresContainer(ctx context.Context) (*PostgresContainer, error) {
 	pgContainer, err := postgres.Run(ctx,
 		"postgres:15.3-alpine",
 		postgres.WithInitScripts(
-			filepath.Join(srcRoot, "..", "database", "schema.sql"),
+			filepath.Join(srcRoot, "..", "testdata", "schema.sql"),
 			filepath.Join(srcRoot, "..", "testdata", "init-db.sql"),
 		),
 		postgres.WithDatabase("test-db"),
@@ -45,7 +45,7 @@ func CreatePostgresContainer(ctx context.Context) (*PostgresContainer, error) {
 		return nil, err
 	}
 
-	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
+	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable", "search_path=youtube_tracker")
 	if err != nil {
 		return nil, err
 	}

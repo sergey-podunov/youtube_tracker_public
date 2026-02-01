@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-script
+  labels:
+    app: postgres
+data:
+  init-users.sh: |
+    #!/bin/bash
+    set -e
+
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+      -- Create dedicated schema for youtube_tracker service
+      CREATE SCHEMA youtube_tracker;
+
+      -- Atlas migrations user: DDL + SELECT for schema inspection, no data modification
+      -- Has rights for all schemas (current and future) to manage migrations
+      CREATE USER atlas_app WITH PASSWORD '$ATLAS_APP_PASS' CREATEROLE;
+      GRANT CONNECT ON DATABASE $POSTGRES_DB TO atlas_app;
+      GRANT CREATE ON DATABASE $POSTGRES_DB TO atlas_app;
+      ALTER SCHEMA youtube_tracker OWNER TO atlas_app;
+
+      -- Application user: DML only, no DDL, scoped to youtube_tracker schema
+      CREATE USER youtube_tracker_app WITH PASSWORD '$YOUTUBE_TRACKER_APP_PASS';
+      GRANT CONNECT ON DATABASE $POSTGRES_DB TO youtube_tracker_app;
+      GRANT USAGE ON SCHEMA youtube_tracker TO youtube_tracker_app;
+      ALTER DEFAULT PRIVILEGES FOR ROLE atlas_app IN SCHEMA youtube_tracker
+        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO youtube_tracker_app;
+      ALTER DEFAULT PRIVILEGES FOR ROLE atlas_app IN SCHEMA youtube_tracker
+        GRANT USAGE, SELECT ON SEQUENCES TO youtube_tracker_app;
+      ALTER USER youtube_tracker_app SET search_path TO youtube_tracker;
+
+      -- Dev user: read-only access for production data inspection
+      -- Has rights for all schemas (current and future) for cross-service inspection
+      CREATE USER dev_user WITH PASSWORD '$DEV_USER_PASS';
+      GRANT CONNECT ON DATABASE $POSTGRES_DB TO dev_user;
+      GRANT USAGE ON SCHEMA youtube_tracker TO dev_user;
+      ALTER DEFAULT PRIVILEGES FOR ROLE atlas_app
+        GRANT SELECT ON TABLES TO dev_user;
+      ALTER DEFAULT PRIVILEGES FOR ROLE atlas_app
+        GRANT USAGE, SELECT ON SEQUENCES TO dev_user;
+    EOSQL

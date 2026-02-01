@@ -4,10 +4,18 @@ auth-cache.json
 .idea
 pkg
 /config.json
+# Plain (unencrypted) secret files - NEVER commit these
 /k8s/000-postgres-secrets.yml
 /k8s/000-notify-secrets.yml
+/k8s/000-google-api-key-secret.yml
+/k8s/000-ghcr-secret.yml
+/k8s/secrets-plain/default/*.yaml
+/k8s/secrets-plain/default/*.yml
+/k8s/secrets-plain/prod/*.yaml
+/k8s/secrets-plain/prod/*.yml
 api
 youtube_tracker.exe
 .DS_Store
 /youtube_tracker
-/database/atlas-schema.yaml
+backup_*.sql
+/testdata/schema.sql
