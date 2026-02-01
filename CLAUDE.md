@@ -172,6 +172,8 @@ This agent will:
 
 The agent reports success/failure for each step and suggests fixes for any issues.
 
+Always run the verify agent after completing code changes to validate the build and tests.
+
 ## Misc
 Don't implement tests when you are asked to implement code.
 Don't implement code when you are asked to implement tests.
