@@ -1,12 +1,14 @@
 # .golangci.yml
+version: "2"
 run:
   timeout: 5m
 
 linters:
   enable:
     - usetesting
-  disable:
-    - tenv
+  exclusions:
+    paths:
+      - internal/examples
 
 issues:
   exclude-use-default: false

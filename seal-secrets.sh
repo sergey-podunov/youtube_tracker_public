@@ -38,7 +38,7 @@ if ! command -v kubeseal &> /dev/null; then
 fi
 
 # Verify controller is reachable
-if ! kubeseal --fetch-cert > /dev/null 2>&1; then
+if ! kubeseal --fetch-cert --controller-name=sealed-secrets-controller --controller-namespace=sealed-secrets > /dev/null 2>&1; then
   echo "Error: Cannot reach SealedSecrets controller. Make sure:"
   echo "  1. The controller is installed in the cluster"
   echo "  2. kubectl is configured to reach the cluster"
@@ -93,16 +93,16 @@ for secret_file in "${FILE_LIST[@]}"; do
 
   # Set the namespace in the secret before sealing
   if command -v yq &> /dev/null; then
-    yq ".metadata.namespace = \"$ENV\"" "$secret_file" > "$tmp_file"
+    yq ".metadata.namespace = \"default\"" "$secret_file" > "$tmp_file"
   else
     # Fallback: use sed to add/replace namespace
-    sed "s|^\(  name:.*\)|\1\n  namespace: $ENV|" "$secret_file" | \
+    sed "s|^\(  name:.*\)|\1\n  namespace: default|" "$secret_file" | \
       sed '/^  namespace:/{ n; /^  namespace:/d; }' > "$tmp_file"
   fi
 
   kubeseal --format yaml \
     --controller-name=sealed-secrets-controller \
-    --controller-namespace=kube-system \
+    --controller-namespace=sealed-secrets \
     < "$tmp_file" \
     > "$SEALED_DIR/$sealed_filename"
 

@@ -5,5 +5,5 @@ metadata:
   labels:
     app: postgres
 data:
-  POSTGRES_DB: "ps_db"
-  POSTGRES_USER: "ps_user"
+  POSTGRES_DB: "tracker_db"
+  POSTGRES_USER: "tracker_admin"

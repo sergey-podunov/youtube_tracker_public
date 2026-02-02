@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: PersistentVolumeClaim
+      name: postgres-volume-claim
+    patch: |-
+      - op: replace
+        path: /spec/storageClassName
+        value: standard-rwo
+      - op: replace
+        path: /spec/accessModes/0
+        value: ReadWriteOnce

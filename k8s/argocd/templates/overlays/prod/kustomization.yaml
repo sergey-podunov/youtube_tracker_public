@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - target:
+      kind: Application
+      name: youtube-tracker
+    patch: |
+      - op: replace
+        path: /spec/source/path
+        value: k8s/overlays/prod
+  - target:
+      kind: Application
+      name: sealed-secrets
+    patch: |
+      - op: replace
+        path: /spec/source/path
+        value: k8s/sealed-secrets/prod
+  - target:
+      kind: Application
+      name: nginx-ingress
+    patch: |
+      - op: replace
+        path: /spec/source/helm/values
+        value: |
+          controller:
+            service:
+              type: LoadBalancer
+  - target:
+      kind: Application
+      name: infrastructure-base
+    patch: |
+      - op: replace
+        path: /spec/source/path
+        value: k8s/infrastructure/overlays/prod

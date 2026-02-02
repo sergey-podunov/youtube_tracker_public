@@ -23,7 +23,7 @@ func main() {
 	_, filename, _, _ := runtime.Caller(0)
 	projectDir := filepath.Dir(filename)
 
-	data, err := os.ReadFile(filepath.Join(projectDir, "k8s", "005-atlas-schema.yaml"))
+	data, err := os.ReadFile(filepath.Join(projectDir, "k8s", "atlas-schema", "atlas-schema.yaml"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to read atlas-schema.yaml: %v\n", err)
 		os.Exit(1)

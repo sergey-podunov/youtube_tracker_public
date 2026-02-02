@@ -151,6 +151,15 @@ Secrets are managed via [Bitnami SealedSecrets](https://github.com/bitnami-labs/
 3. Commit the generated files in `k8s/sealed-secrets/<env>/`
 4. Deploy with `make k8s` or `./apply-k8s.sh [default|prod]`
 
+## Deployment
+
+The application is deployed via [ArgoCD](https://argoproj.github.io/cd/). There are two environment variants:
+
+- **default** - Development environment running on a local Kubernetes cluster. All k8s manifests target the `default` namespace.
+- **prod** - Production environment running on GKE (Google Kubernetes Engine) on GCP. Also deployed to the `default` namespace.
+
+ArgoCD watches the repository and syncs k8s manifests automatically. The `k8s/` directory contains all manifests, with environment-specific sealed secrets under `k8s/sealed-secrets/default/` and `k8s/sealed-secrets/prod/`.
+
 ## Environment Requirements
 - Go 1.24+
 - k8s installed and running (for integration tests)
@@ -177,6 +186,8 @@ Always run the verify agent after completing code changes to validate the build 
 ## Misc
 Don't implement tests when you are asked to implement code.
 Don't implement code when you are asked to implement tests.
+Never run `git commit` or `git push` under any circumstances.
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+Use the `mcp__gcloud__run_gcloud_command` tool (gcloud MCP) when you need to run gcloud commands instead of using the Bash tool.
 Add files to git if they should be under version control.

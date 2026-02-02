@@ -22,6 +22,8 @@ spec:
             - sh
             - -c
             - curl -X POST http://youtube-tracker:${YOUTUBE_TRACKER_PORT}/schedule
+          nodeSelector:
+            cloud.google.com/gke-spot: "true"
           restartPolicy: Never
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 2
