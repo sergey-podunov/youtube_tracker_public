@@ -11,7 +11,7 @@ spec:
   project: default
   source:
     repoURL: git@github.com:sergey-podunov/youtube_tracker.git
-    targetRevision: 62-create-argocd-deployment
+    targetRevision: main
     path: k8s/atlas-schema
   destination:
     server: https://kubernetes.default.svc
