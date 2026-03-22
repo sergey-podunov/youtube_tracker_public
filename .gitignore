@@ -18,4 +18,7 @@ youtube_tracker.exe
 .DS_Store
 /youtube_tracker
 backup_*.sql
+backup_*.txt
+backup-*.yaml
+sealed-secrets-key-backup.yaml
 /testdata/schema.sql

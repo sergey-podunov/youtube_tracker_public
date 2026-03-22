@@ -1,18 +1,18 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: prod
+namespace: default
 
-bases:
+resources:
   - ../../base
 
 images:
   - name: ghcr.io/sergey-podunov/youtube_tracker
-    newTag: v0.1.0
+    newTag: latest
 
 replicas:
   - name: youtube-tracker
-    count: 3
+    count: 2
 
 patches:
   - path: cronjob-patch.yaml

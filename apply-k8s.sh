@@ -93,25 +93,21 @@ else
   echo "Warning: No sealed secrets directory found at $SEALED_DIR"
 fi
 
-# Apply base k8s resources (postgres, etc.)
-echo "Applying base resources..."
-for file in $(ls "$K8S_DIR" | grep -E '\.ya?ml$' | sort); do
-  if [[ -f "$K8S_DIR/$file" ]]; then
-    # Skip plain secret files (sealed secrets are used instead)
-    if [[ "$file" =~ ^000-.*secrets?\.(yml|yaml)$ ]]; then
-      echo "Skipping plain secret file $file (use sealed secrets instead)"
-      continue
-    fi
-    echo "Applying $file..."
-    kubectl apply -f "$K8S_DIR/$file"
+# Apply base infrastructure resources (namespaces, postgres, etc.)
+echo "Applying infrastructure resources..."
+kubectl apply -k "$K8S_DIR/infrastructure"
+if [ $? -ne 0 ]; then
+  echo "Failed to apply infrastructure resources. Exiting."
+  exit 1
+fi
 
-    # Check if the apply command was successful
-    if [ $? -ne 0 ]; then
-      echo "Failed to apply $file. Exiting."
-      exit 1
-    fi
-  fi
-done
+# Apply Atlas schema
+echo "Applying Atlas schema..."
+kubectl apply -k "$K8S_DIR/atlas-schema"
+if [ $? -ne 0 ]; then
+  echo "Failed to apply Atlas schema. Exiting."
+  exit 1
+fi
 
 # Apply environment-specific app resources using Kustomize
 echo "Applying $ENV environment app resources..."
