@@ -17,6 +17,9 @@ spec:
       values: |
         crds:
           enabled: true
+        global:
+          leaderElection:
+            namespace: cert-manager
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager
