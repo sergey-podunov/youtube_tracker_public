@@ -23,7 +23,16 @@ patches:
     patch: |-
       - op: replace
         path: /spec/rules/0/host
-        value: youtube-tracker-prod.local
+        value: api.statspy.io
+      - op: add
+        path: /spec/tls
+        value:
+          - hosts:
+              - api.statspy.io
+            secretName: statspy-tls
+      - op: add
+        path: /metadata/annotations/cert-manager.io~1cluster-issuer
+        value: letsencrypt-prod
   - target:
       kind: Deployment
       name: youtube-tracker
