@@ -16,6 +16,10 @@ spec:
         - name: youtube-tracker
           image: ghcr.io/sergey-podunov/youtube_tracker:latest
           imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
           ports:
             - containerPort: 8080
           env:
