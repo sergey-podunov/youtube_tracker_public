@@ -20,6 +20,20 @@ spec:
         global:
           leaderElection:
             namespace: cert-manager
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        webhook:
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+        cainjector:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager

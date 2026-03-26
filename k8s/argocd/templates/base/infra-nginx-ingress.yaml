@@ -16,6 +16,10 @@ spec:
     helm:
       values: |
         controller:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
           service:
             type: NodePort
             nodePorts:

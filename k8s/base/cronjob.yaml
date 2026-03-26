@@ -12,6 +12,10 @@ spec:
           containers:
           - name: scheduler
             image: curlimages/curl:8.4.0
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
             env:
             - name: YOUTUBE_TRACKER_PORT
               valueFrom:
