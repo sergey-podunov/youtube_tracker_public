@@ -1,4 +1,4 @@
-.PHONY: k8s docker-build argocd-install argocd-password
+.PHONY: k8s docker-build
 BINARY_NAME=ytracker
 DOCKER_IMAGE_NAME=youtube-tracker
 
@@ -53,9 +53,3 @@ docker-build:
 
 k8s:
 	./apply-k8s.sh
-
-argocd-install:
-	./install-argocd.sh
-
-argocd-password:
-	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d && echo

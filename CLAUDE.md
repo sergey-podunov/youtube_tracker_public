@@ -153,12 +153,32 @@ Secrets are managed via [Bitnami SealedSecrets](https://github.com/bitnami-labs/
 
 ## Deployment
 
-The application is deployed via [ArgoCD](https://argoproj.github.io/cd/). There are two environment variants:
+There are two environment variants:
 
-- **default** - Development environment running on a local Kubernetes cluster. All k8s manifests target the `default` namespace.
-- **prod** - Production environment running on GKE (Google Kubernetes Engine) on GCP. Also deployed to the `default` namespace.
+- **default** - Development environment running on a local Kubernetes cluster. Deployed manually via `make k8s` or `./apply-k8s.sh`.
+- **prod** - Production environment running on GKE (Google Kubernetes Engine) on GCP. Deployed via GitHub Actions.
 
-ArgoCD watches the repository and syncs k8s manifests automatically. The `k8s/` directory contains all manifests, with environment-specific sealed secrets under `k8s/sealed-secrets/default/` and `k8s/sealed-secrets/prod/`.
+### Prod Deployment (GitHub Actions)
+
+Production deployment uses two GitHub Actions workflows with Workload Identity Federation for keyless GCP authentication:
+
+- **Deploy to GKE (Prod)** (`deploy-prod.yml`) - Automatically deploys the app when a `prod-v*` tag is pushed (after the Docker image is built). Also supports manual dispatch with a custom image tag. Deploys `k8s/atlas-schema` and `k8s/overlays/prod`.
+- **Deploy Infrastructure to GKE (Prod)** (`deploy-infra.yml`) - Manual-only workflow for one-time infrastructure setup (Helm charts for nginx-ingress, cert-manager, sealed-secrets, atlas-operator, plus PostgreSQL and sealed secrets).
+
+#### Prod Release Flow
+
+1. Push a `prod-v*` tag (e.g., `prod-v2.1.0`)
+2. `docker-build.yml` builds and pushes the Docker image to GHCR
+3. `deploy-prod.yml` triggers automatically, authenticates to GKE, and applies the deployment with the new image tag
+
+#### GitHub Repository Variables Required
+
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` - Workload Identity Federation provider resource name
+- `GCP_SERVICE_ACCOUNT` - GCP service account email for deployment
+
+### Local/Default Deployment
+
+The `k8s/` directory contains all manifests, with environment-specific sealed secrets under `k8s/sealed-secrets/default/` and `k8s/sealed-secrets/prod/`.
 
 ## Environment Requirements
 - Go 1.24+

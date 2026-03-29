@@ -1,0 +1,104 @@
+name: Deploy Infrastructure to GKE (Prod)
+
+on:
+  workflow_dispatch:
+    inputs:
+      components:
+        description: 'Components to deploy'
+        required: true
+        type: choice
+        options:
+          - all
+          - helm-only
+          - k8s-only
+
+env:
+  GKE_CLUSTER: statistics-tracker
+  GKE_ZONE: europe-central2-a
+
+jobs:
+  deploy-infra:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
+
+      # --- Helm charts (Wave 0) ---
+
+      - name: Install/Upgrade nginx-ingress
+        if: inputs.components == 'all' || inputs.components == 'helm-only'
+        run: |
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo update
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+            --namespace ingress-nginx --create-namespace \
+            --version 4.7.1 \
+            --set controller.resources.requests.cpu=50m \
+            --set controller.resources.requests.memory=128Mi \
+            --set controller.service.type=LoadBalancer
+
+      - name: Install/Upgrade cert-manager
+        if: inputs.components == 'all' || inputs.components == 'helm-only'
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+          helm upgrade --install cert-manager jetstack/cert-manager \
+            --namespace cert-manager --create-namespace \
+            --version v1.17.1 \
+            --set crds.enabled=true \
+            --set global.leaderElection.namespace=cert-manager \
+            --set resources.requests.cpu=50m \
+            --set resources.requests.memory=128Mi \
+            --set webhook.resources.requests.cpu=25m \
+            --set webhook.resources.requests.memory=64Mi \
+            --set cainjector.resources.requests.cpu=50m \
+            --set cainjector.resources.requests.memory=128Mi
+
+      - name: Install/Upgrade sealed-secrets
+        if: inputs.components == 'all' || inputs.components == 'helm-only'
+        run: |
+          helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
+          helm repo update
+          helm upgrade --install sealed-secrets-controller sealed-secrets/sealed-secrets \
+            --namespace sealed-secrets --create-namespace \
+            --version 2.16.2 \
+            --set fullnameOverride=sealed-secrets-controller \
+            --set rbac.serviceProxier.bind=false \
+            --set resources.limits.ephemeral-storage=100Mi \
+            --set resources.requests.cpu=50m \
+            --set resources.requests.ephemeral-storage=50Mi \
+            --set resources.requests.memory=128Mi
+
+      - name: Install/Upgrade atlas-operator
+        if: inputs.components == 'all' || inputs.components == 'helm-only'
+        run: |
+          helm upgrade --install atlas-operator oci://ghcr.io/ariga/charts/atlas-operator \
+            --version 0.7.28 \
+            --set resources.requests.cpu=50m \
+            --set resources.requests.memory=128Mi
+
+      # --- Kubernetes resources (Waves 1-2) ---
+
+      - name: Deploy PostgreSQL infrastructure
+        if: inputs.components == 'all' || inputs.components == 'k8s-only'
+        run: kubectl apply -k k8s/infrastructure/overlays/prod
+
+      - name: Deploy sealed secrets
+        if: inputs.components == 'all' || inputs.components == 'k8s-only'
+        run: kubectl apply -f k8s/sealed-secrets/prod/
