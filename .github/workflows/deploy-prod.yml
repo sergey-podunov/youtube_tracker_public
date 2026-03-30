@@ -1,0 +1,76 @@
+name: Deploy to GKE (Prod)
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Image"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (e.g., v2.1.0)'
+        required: true
+        type: string
+
+env:
+  GKE_CLUSTER: statistics-tracker
+  GKE_ZONE: europe-central2-a
+  IMAGE: ghcr.io/sergey-podunov/youtube_tracker
+
+jobs:
+  deploy:
+    # Run on: manual dispatch OR successful workflow_run triggered by a prod-v* tag
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'prod-v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            # Extract version from prod-v* tag: prod-v2.1.0 -> v2.1.0
+            TAG="${{ github.event.workflow_run.head_branch }}"
+            VERSION=$(echo "$TAG" | sed 's/^prod-//')
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Set image tag via Kustomize
+        run: |
+          cd k8s/overlays/prod
+          kustomize edit set image ${{ env.IMAGE }}:${{ steps.tag.outputs.version }}
+
+      - name: Deploy Atlas schema
+        run: kubectl apply -k k8s/atlas-schema
+
+      - name: Deploy youtube-tracker
+        run: kubectl apply -k k8s/overlays/prod
+
+      - name: Verify deployment rollout
+        run: |
+          kubectl rollout status deployment/youtube-tracker --timeout=120s
+          echo "Deployed ${{ env.IMAGE }}:${{ steps.tag.outputs.version }} successfully"
