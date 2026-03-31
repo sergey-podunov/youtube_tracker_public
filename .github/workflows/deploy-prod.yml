@@ -13,7 +13,7 @@ on:
 
 env:
   GKE_CLUSTER: statistics-tracker
-  GKE_ZONE: europe-central2-a
+  GKE_ZONE: us-central1-b
   IMAGE: ghcr.io/sergey-podunov/youtube_tracker
 
 jobs:
