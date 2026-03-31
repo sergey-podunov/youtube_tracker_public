@@ -65,7 +65,9 @@ jobs:
           kustomize edit set image ${{ env.IMAGE }}:${{ steps.tag.outputs.version }}
 
       - name: Deploy Atlas schema
-        run: kubectl apply -k k8s/atlas-schema
+        run: |
+          kubectl apply -k k8s/atlas-schema
+          kubectl wait --for=condition=Ready atlasschema/psdb-atlas --timeout=180s
 
       - name: Deploy youtube-tracker
         run: kubectl apply -k k8s/overlays/prod
