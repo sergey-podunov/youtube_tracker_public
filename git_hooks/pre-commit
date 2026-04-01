@@ -3,9 +3,9 @@
 echo "Running pre-commit hook: Building project and running tests..."
 
 if ! make build; then
-    echo "Build failed. Aborting push."
+    echo "Build failed. Aborting commit."
     exit 1
 fi
 
-echo "Build and tests succeeded. Proceeding with push..."
+echo "Build and tests succeeded. Proceeding with commit..."
 exit 0

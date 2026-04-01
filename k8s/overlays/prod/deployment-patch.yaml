@@ -9,4 +9,4 @@ spec:
         - name: youtube-tracker
           env:
             - name: ALLOWED_ORIGIN
-              value: "https://api.statspy.io"
+              value: "https://statspy.io,https://api.statspy.io"

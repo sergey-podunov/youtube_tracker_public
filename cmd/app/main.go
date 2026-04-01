@@ -81,7 +81,7 @@ func NewApp(ctx context.Context, port int, dbURL string, googleApiKey string, al
 		return nil, err
 	}
 
-	corsHandler, err := mainHandler.NewCORSHandler(srv, allowedOrigin)
+	corsHandler, err := mainHandler.NewCORSHandler(srv, allowedOrigin, logger.With(slog.String("component", "CORSHandler")))
 	if err != nil {
 		return nil, err
 	}
