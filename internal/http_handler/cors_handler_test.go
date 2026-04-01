@@ -61,6 +61,20 @@ func TestCorsHandlerShouldAllowOrigin(t *testing.T) {
 	assert.Equal(t, "someOrigin", responseWriter.Header().Get("Access-Control-Allow-Origin"))
 }
 
+func TestCorsHandlerShouldAllowOriginWhenOriginIsCommaList(t *testing.T) {
+	nextHandler := httpHandlerMock{}
+
+	responseWriter := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Origin", "someOrigin")
+
+	corsHandler, _ := NewCORSHandler(&nextHandler, "allowOrigin, someOrigin")
+	corsHandler.ServeHTTP(responseWriter, req)
+	
+	assert.True(t, nextHandler.isCalled)
+	assert.Equal(t, "someOrigin", responseWriter.Header().Get("Access-Control-Allow-Origin"))
+}
+
 func TestCorsHandlerShouldNotAllowOrigin(t *testing.T) {
 	nextHandler := httpHandlerMock{}
 
