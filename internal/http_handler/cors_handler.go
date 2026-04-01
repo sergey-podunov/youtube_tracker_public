@@ -2,6 +2,7 @@ package http_handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 )
@@ -10,7 +11,7 @@ import (
 // allowedOrigin can be a single origin or a comma-separated list of origins.
 // Returns an error if the provided allowedOrigin is empty or contains only whitespace.
 // Next handlers set Access-Control-Content-Type and Access-Control-Allow-Methods headers.
-func NewCORSHandler(next http.Handler, allowedOrigin string) (http.Handler, error) {
+func NewCORSHandler(next http.Handler, allowedOrigin string, logger *slog.Logger) (http.Handler, error) {
 	if len(strings.TrimSpace(allowedOrigin)) == 0 {
 		return nil, errors.New("allowedOrigin is empty")
 	}
@@ -30,11 +31,16 @@ func NewCORSHandler(next http.Handler, allowedOrigin string) (http.Handler, erro
 		if allowedOrigins[0] == "*" {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 		} else {
+			allowed := false
 			for _, o := range allowedOrigins {
 				if originalOrigin == o {
 					w.Header().Set("Access-Control-Allow-Origin", originalOrigin)
+					allowed = true
 					break
 				}
+			}
+			if !allowed {
+				logger.Warn("CORS: origin not allowed", "origin", originalOrigin)
 			}
 		}
 

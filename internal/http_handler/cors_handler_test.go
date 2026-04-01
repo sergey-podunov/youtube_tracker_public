@@ -1,12 +1,16 @@
 package http_handler
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+var discardLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 type httpHandlerMock struct {
 	isCalled bool
@@ -24,7 +28,7 @@ func TestCorsHandlerCallNext(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Origin", "someOrigin")
 	
-	corsHandler, _ := NewCORSHandler(&nextHandler, "*")
+	corsHandler, _ := NewCORSHandler(&nextHandler, "*", discardLogger)
 	corsHandler.ServeHTTP(responseWriter, req)
 
 	assert.True(t, nextHandler.isCalled)
@@ -39,7 +43,7 @@ func TestCorsHandlerShouldCallNextWhenOptions(t *testing.T) {
 	req := httptest.NewRequest(http.MethodOptions, "/", nil)
 	req.Header.Set("Origin", "someOrigin")
 
-	corsHandler, _ := NewCORSHandler(&nextHandler, "someOrigin")
+	corsHandler, _ := NewCORSHandler(&nextHandler, "someOrigin", discardLogger)
 	corsHandler.ServeHTTP(responseWriter, req)
 
 	assert.True(t, nextHandler.isCalled)
@@ -54,7 +58,7 @@ func TestCorsHandlerShouldAllowOrigin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Origin", "someOrigin")
 
-	corsHandler, _ := NewCORSHandler(&nextHandler, "someOrigin")
+	corsHandler, _ := NewCORSHandler(&nextHandler, "someOrigin", discardLogger)
 	corsHandler.ServeHTTP(responseWriter, req)
 	
 	assert.True(t, nextHandler.isCalled)
@@ -68,7 +72,7 @@ func TestCorsHandlerShouldAllowOriginWhenOriginIsCommaList(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Origin", "someOrigin")
 
-	corsHandler, _ := NewCORSHandler(&nextHandler, "allowOrigin, someOrigin")
+	corsHandler, _ := NewCORSHandler(&nextHandler, "allowOrigin, someOrigin", discardLogger)
 	corsHandler.ServeHTTP(responseWriter, req)
 	
 	assert.True(t, nextHandler.isCalled)
@@ -82,7 +86,7 @@ func TestCorsHandlerShouldNotAllowOrigin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Origin", "someOrigin")
 
-	corsHandler, _ := NewCORSHandler(&nextHandler, "anotherOrigin")
+	corsHandler, _ := NewCORSHandler(&nextHandler, "anotherOrigin", discardLogger)
 	corsHandler.ServeHTTP(responseWriter, req)
 
 	assert.True(t, nextHandler.isCalled)
@@ -96,7 +100,7 @@ func TestCorsHandlerShouldAllowRequestWithoutOrigin(t *testing.T) {
 	responseWriter := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 
-	corsHandler, _ := NewCORSHandler(&nextHandler, "someOrigin")
+	corsHandler, _ := NewCORSHandler(&nextHandler, "someOrigin", discardLogger)
 	corsHandler.ServeHTTP(responseWriter, req)
 
 	assert.True(t, nextHandler.isCalled)
@@ -121,7 +125,7 @@ func TestNewCORSHandlerShouldRejectInvalidAllowOrigin(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			nextHandler := &httpHandlerMock{}
 
-			handler, err := NewCORSHandler(nextHandler, tc.allowOrigin)
+			handler, err := NewCORSHandler(nextHandler, tc.allowOrigin, discardLogger)
 
 			assert.Nil(t, handler)
 			assert.Error(t, err)
