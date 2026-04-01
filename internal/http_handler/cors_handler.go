@@ -19,6 +19,16 @@ func NewCORSHandler(next http.Handler, allowedOrigin string, logger *slog.Logger
 	allowedOrigins := strings.Split(allowedOrigin, ",")
 	for i, o := range allowedOrigins {
 		allowedOrigins[i] = strings.TrimSpace(o)
+		if len(allowedOrigins[i]) == 0 {
+			return nil, errors.New("allowedOrigin contains empty entry")
+		}
+	}
+	if len(allowedOrigins) > 1 {
+		for _, o := range allowedOrigins {
+			if o == "*" {
+				return nil, errors.New("wildcard '*' cannot be mixed with other origins")
+			}
+		}
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
