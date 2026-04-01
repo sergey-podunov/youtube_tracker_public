@@ -8,6 +8,7 @@ on:
       - 'v*'
       - 'default-v*'
       - 'prod-v*'
+      - 'prod-[0-9]*'
 
 env:
   REGISTRY: ghcr.io
@@ -42,8 +43,9 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            # For env-prefixed tags like prod-v2.0.0, extract the version part
+            # For env-prefixed tags like prod-v2.0.0 or prod-2.0.0, extract the version part
             type=match,pattern=\w+-v(.*),group=1
+            type=match,pattern=prod-(\d.*),group=1
             # For pull requests, use pr-<PR_NUMBER>-<RUN_NUMBER> as a unique build identifier
             type=raw,value=pr-${{ github.event.pull_request.number }}-${{ github.run_number }},enable=${{ github.event_name == 'pull_request' }}
             type=raw,value=latest,enable=${{ github.event_name == 'pull_request' && github.event.pull_request.merged == true }}
@@ -55,9 +57,9 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             # Align BUILD_TAG with the Docker image tag for PRs
             BUILD_TAG_VALUE="pr-${{ github.event.pull_request.number }}-${{ github.run_number }}"
-          elif [[ "${{ github.ref }}" == refs/tags/*-v* ]]; then
-            # Extract version from env-prefixed tag (e.g., prod-v2.0.0 -> v2.0.0)
-            BUILD_TAG_VALUE=$(echo "${{ github.ref_name }}" | sed 's/^[a-z]*-//')
+          elif [[ "${{ github.ref }}" == refs/tags/*-v* || "${{ github.ref }}" == refs/tags/prod-[0-9]* ]]; then
+            # Extract version from env-prefixed tag (e.g., prod-v2.0.0 or prod-2.0.0 -> 2.0.0)
+            BUILD_TAG_VALUE=$(echo "${{ github.ref_name }}" | sed 's/^[a-z]*-//' | sed 's/^v//')
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             BUILD_TAG_VALUE="${{ github.ref_name }}" # Use the Git tag if it's a version release
           fi

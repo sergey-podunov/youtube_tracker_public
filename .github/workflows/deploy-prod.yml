@@ -22,7 +22,7 @@ jobs:
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
-       startsWith(github.event.workflow_run.head_branch, 'prod-v'))
+       startsWith(github.event.workflow_run.head_branch, 'prod-'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -38,9 +38,9 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "version=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
           else
-            # Extract version from prod-v* tag: prod-v2.1.0 -> v2.1.0
+            # Extract version from prod-v* or prod-* tag: prod-v2.1.0 or prod-2.1.0 -> 2.1.0
             TAG="${{ github.event.workflow_run.head_branch }}"
-            VERSION=$(echo "$TAG" | sed 's/^prod-//')
+            VERSION=$(echo "$TAG" | sed 's/^prod-//' | sed 's/^v//')
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           fi
 
