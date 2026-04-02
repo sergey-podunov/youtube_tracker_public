@@ -1,14 +1,7 @@
 name: Build and Push Docker Image
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-  push:
-    tags:
-      - 'v*'
-      - 'default-v*'
-      - 'prod-v*'
-      - 'prod-[0-9]*'
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
