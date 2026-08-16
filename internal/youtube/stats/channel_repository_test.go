@@ -7,9 +7,8 @@ import (
 	"testing"
 	"youtube_tracker/internal/helpers"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -21,29 +20,6 @@ func TestChannelRepoTestSuite(t *testing.T) {
 	suite.Run(t, new(ChannelRepoTestSuite))
 }
 
-func (suite *ChannelRepoTestSuite) insertChannel(channel YoutubeChannel) int64 {
-	t := suite.T()
-	ctx := suite.ctx
-
-	query := `
-	INSERT INTO youtube_channel (
-		channel_name,
-		external_id,
-		created_at
-	)
-	VALUES (
-		$1,
-		$2,
-		$3
-	) RETURNING youtube_channel_id`
-
-	var insertedID int64
-	err := suite.tx.QueryRow(ctx, query, channel.Name, channel.ExternalID, channel.CreatedAt).Scan(&insertedID)
-	require.NoError(t, err)
-
-	return insertedID
-}
-
 func (suite *ChannelRepoTestSuite) TestCreateChannel() {
 	t := suite.T()
 	ctx := suite.ctx
@@ -53,7 +29,7 @@ func (suite *ChannelRepoTestSuite) TestCreateChannel() {
 		suite.tx,
 		YoutubeChannel{
 			ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
-			Name:       "Google Developers",
+			Title:      "Google Developers",
 		})
 	require.NoError(t, err)
 	require.NotNil(t, channel.YoutubeChannelId)
@@ -61,11 +37,18 @@ func (suite *ChannelRepoTestSuite) TestCreateChannel() {
 	var actualChannel YoutubeChannel
 	err =
 		suite.tx.QueryRow(ctx, "SELECT * FROM youtube_channel WHERE youtube_channel_id = $1", channel.YoutubeChannelId).
-			Scan(&actualChannel.YoutubeChannelId, &actualChannel.ExternalID, &actualChannel.Name, &actualChannel.CreatedAt, &actualChannel.CheckedAt)
+			Scan(&actualChannel.YoutubeChannelId,
+				&actualChannel.ExternalID,
+				&actualChannel.Title,
+				&actualChannel.CustomURL,
+				&actualChannel.Description,
+				&actualChannel.PublishedAt,
+				&actualChannel.CreatedAt,
+				&actualChannel.CheckedAt)
 	require.NoError(t, err)
 
 	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
-	assert.Equal(t, "Google Developers", actualChannel.Name)
+	assert.Equal(t, "Google Developers", actualChannel.Title)
 	assert.False(t, actualChannel.CreatedAt.IsZero())
 	assert.Equal(t, channel.CreatedAt, actualChannel.CreatedAt)
 }
@@ -75,8 +58,9 @@ func (suite *ChannelRepoTestSuite) TestGetChannel() {
 	ctx := suite.ctx
 
 	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
-	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Name: "Google Developers", CreatedAt: createdAt}
-	insertedID := suite.insertChannel(channelToInsert)
+	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Title: "Google Developers", CreatedAt: createdAt}
+	insertedID, err := insertChannel(ctx, suite.tx, channelToInsert)
+	require.NoError(t, err)
 
 	actualChannel, ok, err := suite.repository.GetChannel(ctx, insertedID)
 	require.NoError(t, err)
@@ -84,7 +68,7 @@ func (suite *ChannelRepoTestSuite) TestGetChannel() {
 	assert.True(t, ok)
 	assert.Equal(t, insertedID, actualChannel.YoutubeChannelId)
 	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
-	assert.Equal(t, "Google Developers", actualChannel.Name)
+	assert.Equal(t, "Google Developers", actualChannel.Title)
 	assert.Equal(t, createdAt, actualChannel.CreatedAt)
 }
 
@@ -104,8 +88,9 @@ func (suite *ChannelRepoTestSuite) TestGetChannelByExternalId() {
 	tx := suite.tx
 
 	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
-	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Name: "Google Developers", CreatedAt: createdAt}
-	insertedID := suite.insertChannel(channelToInsert)
+	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Title: "Google Developers", CreatedAt: createdAt}
+	insertedID, err := insertChannel(ctx, suite.tx, channelToInsert)
+	require.NoError(t, err)
 
 	actualChannel, ok, err := suite.repository.getChannelByExternalId(ctx, tx, "UC-lHJZR3Gqxm24_Vd_AJ5Yw")
 	require.NoError(t, err)
@@ -113,7 +98,7 @@ func (suite *ChannelRepoTestSuite) TestGetChannelByExternalId() {
 	assert.True(t, ok)
 	assert.Equal(t, insertedID, actualChannel.YoutubeChannelId)
 	assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
-	assert.Equal(t, "Google Developers", actualChannel.Name)
+	assert.Equal(t, "Google Developers", actualChannel.Title)
 	assert.Equal(t, createdAt, actualChannel.CreatedAt)
 }
 
@@ -138,7 +123,7 @@ func (suite *ChannelRepoTestSuite) TestStoreSubscriptionsCount() {
 		suite.tx,
 		YoutubeChannel{
 			ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
-			Name:       "Google Developers",
+			Title:      "Google Developers",
 		})
 	require.NoError(t, err)
 	require.NotNil(t, channel.YoutubeChannelId)
@@ -185,14 +170,16 @@ func (suite *ChannelRepoTestSuite) TestGetChannelsPaginated() {
 	t := suite.T()
 	ctx := suite.ctx
 	tx := suite.tx
-	
+
 	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
-	
-	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Name: "Google Developers", CreatedAt: createdAt}
-	_ = suite.insertChannel(channelToInsert)
-	
-	channelToInsert = YoutubeChannel{ExternalID: "test_channel_youtube_id", Name: "Test channel", CreatedAt: createdAt}
-	insertedID := suite.insertChannel(channelToInsert)
+
+	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Title: "Google Developers", CreatedAt: createdAt}
+	_, err := insertChannel(ctx, suite.tx, channelToInsert)
+	require.NoError(t, err)
+
+	channelToInsert = YoutubeChannel{ExternalID: "test_channel_youtube_id", Title: "Test channel", CreatedAt: createdAt}
+	insertedID, err := insertChannel(ctx, suite.tx, channelToInsert)
+	require.NoError(t, err)
 
 	actualChannels, err := suite.repository.getChannelsPaginated(ctx, tx, 1, 1)
 	require.NoError(t, err)
@@ -219,9 +206,10 @@ func (suite *ChannelRepoTestSuite) TestGetChannelsCount() {
 	tx := suite.tx
 
 	createdAt := helpers.ParseTime("2005-08-15T15:52:01Z")
-	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Name: "Google Developers", CreatedAt: createdAt}
-	_ = suite.insertChannel(channelToInsert)
-	
+	channelToInsert := YoutubeChannel{ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw", Title: "Google Developers", CreatedAt: createdAt}
+	_, err := insertChannel(ctx, suite.tx, channelToInsert)
+	require.NoError(t, err)
+
 	actualChannelsCount, err := suite.repository.getChannelsCount(ctx, tx)
 	require.NoError(t, err)
 

@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"testing"
 	"youtube_tracker/internal/helpers"
-	
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -53,7 +53,7 @@ func TestYoutubeChannelService_GetChannelStat(t *testing.T) {
 				mockInternalRepository.On("getChannel", ctx, mock.Anything, int64(84374)).Return(YoutubeChannel{
 					YoutubeChannelId: int64(84374),
 					ExternalID:       "3263yw",
-					Name:             "Some Channel",
+					Title:            "Some Channel",
 				}, true, nil)
 				mockInternalRepository.On("getChannelStat", ctx, mock.Anything, int64(84374)).Return([]YoutubeChannelStats{}, nil)
 
@@ -73,7 +73,7 @@ func TestYoutubeChannelService_GetChannelStat(t *testing.T) {
 				mockInternalRepository.On("getChannel", ctx, mock.Anything, int64(84374)).Return(YoutubeChannel{
 					YoutubeChannelId: int64(84374),
 					ExternalID:       "3263yw",
-					Name:             "Some Channel",
+					Title:            "Some Channel",
 				}, true, nil)
 				mockInternalRepository.On("getChannelStat", ctx, mock.Anything, int64(84374)).Return([]YoutubeChannelStats{
 					{
@@ -104,11 +104,11 @@ func TestYoutubeChannelService_GetChannelStat(t *testing.T) {
 	mockTxtController := new(MockTxController)
 	mockTxtController.On("Begin", ctx).Return(&MockTx{}, nil)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			mockInternalRepository := new(internalMockChannelRepository)
-			service := NewYoutubeChannelService(logger, mockTxtController, mockInternalRepository)
+			service := NewYoutubeChannelService(logger, mockTxtController, mockInternalRepository, nil, nil)
 
 			tc.test(t, mockInternalRepository, service)
 		})

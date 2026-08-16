@@ -6,22 +6,31 @@ import (
 )
 
 type ContextKey string
+
 const LoggerKey = ContextKey("logger")
 const RequestIDKey = ContextKey("requestID")
 
-func LoggerFromContext(ctx context.Context, componentName string, defaultLogger *slog.Logger) *slog.Logger {
+func LoggerFromContextWithDefault(ctx context.Context, componentName string, defaultLogger *slog.Logger) *slog.Logger {
 	if logger, ok := ctx.Value(LoggerKey).(*slog.Logger); ok {
 		return logger.With(slog.String("component", componentName))
 	}
-	
+
 	return defaultLogger.With(slog.String("component", componentName))
+}
+
+func LoggerFromContext(ctx context.Context, componentName string) *slog.Logger {
+	if logger, ok := ctx.Value(LoggerKey).(*slog.Logger); ok {
+		return logger.With(slog.String("component", componentName))
+	}
+
+	panic("no logger found in context")
 }
 
 func RequestIdFromContext(ctx context.Context) string {
 	if requestID, ok := ctx.Value(RequestIDKey).(string); ok {
 		return requestID
 	}
-	
+
 	return "undefined"
 }
 

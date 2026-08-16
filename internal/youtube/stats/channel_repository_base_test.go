@@ -6,7 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"youtube_tracker/internal/helpers"
-	
+
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/suite"
 )
@@ -66,19 +66,26 @@ func (suite *BaseChannelRepoTestSuite) TearDownTest() {
 func insertChannels(ctx context.Context, tx pgx.Tx, expectedChannels []YoutubeChannel) error {
 	query := `
 			INSERT INTO youtube_channel (
-					channel_name,
-					external_id,
-					created_at,
-			        checked_at                    
+				title,
+				external_id,
+			  	custom_url,
+				description,
+			  	published_at,
+				created_at,
+			    checked_at
 			) VALUES (
-				$1,
-				$2,
-				$3,
-			    $4
+				$1, $2, $3, $4, $5, $6, $7
 			)`
-	
+
 	for _, channel := range expectedChannels {
-		_, err := tx.Exec(ctx, query, channel.Name, channel.ExternalID, channel.CreatedAt, channel.CheckedAt)
+		_, err := tx.Exec(ctx, query,
+			channel.Title,
+			channel.ExternalID,
+			channel.CustomURL,
+			channel.Description,
+			channel.PublishedAt,
+			channel.CreatedAt,
+			channel.CheckedAt)
 		if err != nil {
 			return err
 		}
@@ -92,7 +99,7 @@ func insertChannelsWithId(ctx context.Context, tx pgx.Tx, expectedChannels []You
 	query := `
 			INSERT INTO youtube_channel (
 			        youtube_channel_id,
-					channel_name,
+					title,
 					external_id,
 					created_at,
 			        checked_at
@@ -103,9 +110,9 @@ func insertChannelsWithId(ctx context.Context, tx pgx.Tx, expectedChannels []You
 			    $4,
 			    $5
 			)`
-	
+
 	for _, channel := range expectedChannels {
-		_, err := tx.Exec(ctx, query, channel.YoutubeChannelId, channel.Name, channel.ExternalID, channel.CreatedAt, channel.CheckedAt)
+		_, err := tx.Exec(ctx, query, channel.YoutubeChannelId, channel.Title, channel.ExternalID, channel.CreatedAt, channel.CheckedAt)
 		if err != nil {
 			return err
 		}

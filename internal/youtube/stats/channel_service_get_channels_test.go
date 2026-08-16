@@ -45,7 +45,7 @@ func TestYoutubeChannelService_GetChannels(t *testing.T) {
 					{
 						YoutubeChannelId: int64(345),
 						ExternalID:       "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
-						Name:             "Google Developers",
+						Title:            "Google Developers",
 						CreatedAt:        time.Now(),
 					},
 				}
@@ -72,7 +72,7 @@ func TestYoutubeChannelService_GetChannels(t *testing.T) {
 					{
 						YoutubeChannelId: int64(345),
 						ExternalID:       "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
-						Name:             "Google Developers",
+						Title:            "Google Developers",
 						CreatedAt:        time.Now(),
 					},
 				}
@@ -99,7 +99,7 @@ func TestYoutubeChannelService_GetChannels(t *testing.T) {
 					{
 						YoutubeChannelId: int64(345),
 						ExternalID:       "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
-						Name:             "Google Developers",
+						Title:            "Google Developers",
 						CreatedAt:        time.Now(),
 					},
 				}
@@ -129,7 +129,7 @@ func TestYoutubeChannelService_GetChannels(t *testing.T) {
 
 		mockInternalRepository := new(internalMockChannelRepository)
 
-		service := NewYoutubeChannelService(slog.New(slog.NewTextHandler(io.Discard, nil)), mockTxtController, mockInternalRepository)
+		service := NewYoutubeChannelService(slog.New(slog.NewTextHandler(io.Discard, nil)), mockTxtController, mockInternalRepository, nil, nil)
 
 		t.Run(tc.name, func(t *testing.T) {
 			tc.test(t, service, mockInternalRepository)

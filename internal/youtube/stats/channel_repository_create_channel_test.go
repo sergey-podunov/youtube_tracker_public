@@ -28,7 +28,7 @@ func TestYoutubeChannelRepository_CreateChannel(t *testing.T) {
 					db,
 					YoutubeChannel{
 						ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
-						Name:       "Google Developers",
+						Title:      "Google Developers",
 					})
 				require.NoError(t, err)
 				require.NotNil(t, channel.YoutubeChannelId)
@@ -36,11 +36,18 @@ func TestYoutubeChannelRepository_CreateChannel(t *testing.T) {
 				var actualChannel YoutubeChannel
 				err =
 					db.QueryRow(ctx, "SELECT * FROM youtube_channel WHERE youtube_channel_id = $1", channel.YoutubeChannelId).
-						Scan(&actualChannel.YoutubeChannelId, &actualChannel.ExternalID, &actualChannel.Name, &actualChannel.CreatedAt, &actualChannel.CheckedAt)
+						Scan(&actualChannel.YoutubeChannelId,
+							&actualChannel.ExternalID,
+							&actualChannel.Title,
+							&actualChannel.CustomURL,
+							&actualChannel.Description,
+							&actualChannel.PublishedAt,
+							&actualChannel.CreatedAt,
+							&actualChannel.CheckedAt)
 				require.NoError(t, err)
 
 				assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", actualChannel.ExternalID)
-				assert.Equal(t, "Google Developers", actualChannel.Name)
+				assert.Equal(t, "Google Developers", actualChannel.Title)
 				assert.False(t, actualChannel.CreatedAt.IsZero())
 				assert.Equal(t, channel.CreatedAt, actualChannel.CreatedAt)
 			},
@@ -49,7 +56,7 @@ func TestYoutubeChannelRepository_CreateChannel(t *testing.T) {
 			"channel exists", func(t *testing.T, db helpers.Querier, repository *YoutubeChannelRepository) {
 				channel := YoutubeChannel{
 					ExternalID: "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
-					Name:       "Google Developers",
+					Title:      "Google Developers",
 				}
 				existingChannel, err := repository.createChannel(ctx, db, channel)
 				require.NoError(t, err)
@@ -58,7 +65,7 @@ func TestYoutubeChannelRepository_CreateChannel(t *testing.T) {
 				assert.Nil(t, err)
 
 				assert.Equal(t, "UC-lHJZR3Gqxm24_Vd_AJ5Yw", newChannel.ExternalID)
-				assert.Equal(t, "Google Developers", newChannel.Name)
+				assert.Equal(t, "Google Developers", newChannel.Title)
 				assert.NotEqual(t, existingChannel.YoutubeChannelId, newChannel.YoutubeChannelId)
 			},
 		},

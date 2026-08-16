@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 	"youtube_tracker/internal/helpers"
-	
+
 	"github.com/google/uuid"
 	"github.com/ogen-go/ogen/middleware"
 )
@@ -17,7 +17,7 @@ func NewRequestLogger(logger *slog.Logger) middleware.Middleware {
 	return func(req middleware.Request, next middleware.Next) (middleware.Response, error) {
 		ctx := req.Context
 		loggerWithRequestID := helpers.LoggerWithRequestID(ctx, requestLogger)
-		
+
 		start := time.Now()
 		resp, err := next(req)
 		duration := time.Since(start)

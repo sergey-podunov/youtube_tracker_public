@@ -77,12 +77,12 @@ type telegram struct {
 	botToken string
 	chatID   int64
 	client   *http.Client
-	logger *slog.Logger
+	logger   *slog.Logger
 }
 
 func (t telegram) Send(ctx context.Context, text string) error {
 	helpers.LoggerWithRequestID(ctx, t.logger).Info("sending message", slog.String("text", text))
-	
+
 	p := tgSendPayload{ChatID: t.chatID, Text: text}
 	b, _ := json.Marshal(p)
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", t.botToken)

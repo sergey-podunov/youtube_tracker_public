@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 	"youtube_tracker/internal/helpers"
+	"youtube_tracker/internal/ytclient"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -12,6 +13,55 @@ import (
 )
 
 var errUnimplemented = errors.New("unimplemented")
+
+type MockYoutubeClient struct {
+	mock.Mock
+}
+
+func (m *MockYoutubeClient) GetChannelData(ctx context.Context, channelId string) (ytclient.ChannelData, error) {
+	args := m.Called(ctx, channelId)
+	var data ytclient.ChannelData
+	if args.Get(0) != nil {
+		data = args.Get(0).(ytclient.ChannelData)
+	}
+	return data, args.Error(1)
+}
+
+func (m *MockYoutubeClient) GetChannelByHandle(ctx context.Context, handle string) (ytclient.ChannelData, error) {
+	args := m.Called(ctx, handle)
+	var data ytclient.ChannelData
+	if args.Get(0) != nil {
+		data = args.Get(0).(ytclient.ChannelData)
+	}
+	return data, args.Error(1)
+}
+
+func (m *MockYoutubeClient) GetChannelByUsername(ctx context.Context, username string) (ytclient.ChannelData, error) {
+	args := m.Called(ctx, username)
+	var data ytclient.ChannelData
+	if args.Get(0) != nil {
+		data = args.Get(0).(ytclient.ChannelData)
+	}
+	return data, args.Error(1)
+}
+
+func (m *MockYoutubeClient) GetChannelVideos(ctx context.Context, channelId string, maxResults int64) ([]ytclient.VideoData, error) {
+	args := m.Called(ctx, channelId, maxResults)
+	var data []ytclient.VideoData
+	if args.Get(0) != nil {
+		data = args.Get(0).([]ytclient.VideoData)
+	}
+	return data, args.Error(1)
+}
+
+func (m *MockYoutubeClient) GetVideosData(ctx context.Context, videoIds []string) ([]ytclient.VideoData, error) {
+	args := m.Called(ctx, videoIds)
+	var data []ytclient.VideoData
+	if args.Get(0) != nil {
+		data = args.Get(0).([]ytclient.VideoData)
+	}
+	return data, args.Error(1)
+}
 
 type MockChannelRepository struct {
 	mock.Mock
@@ -48,6 +98,113 @@ func (r *MockChannelRepository) GetChannels(ctx context.Context, checkedBefore t
 	}
 
 	return channels, args.Error(1)
+}
+
+type MockVideoRepository struct {
+	mock.Mock
+}
+
+func (r *MockVideoRepository) GetVideo(ctx context.Context, videoID int64) (YoutubeVideo, bool, error) {
+	args := r.Called(ctx, videoID)
+
+	var v YoutubeVideo
+	if args.Get(0) != nil {
+		v = args.Get(0).(YoutubeVideo)
+	}
+
+	return v, args.Get(1).(bool), args.Error(2)
+}
+
+func (r *MockVideoRepository) GetVideos(ctx context.Context, sinceTime time.Time, count int) ([]YoutubeVideo, error) {
+	args := r.Called(ctx, sinceTime, count)
+
+	var videos []YoutubeVideo
+	if args.Get(0) != nil {
+		videos = args.Get(0).([]YoutubeVideo)
+	}
+
+	return videos, args.Error(1)
+}
+
+func (r *MockVideoRepository) StoreVideoStats(ctx context.Context, stats YoutubeVideoStats) (YoutubeVideoStats, error) {
+	args := r.Called(ctx, stats)
+
+	var vs YoutubeVideoStats
+	if args.Get(0) != nil {
+		vs = args.Get(0).(YoutubeVideoStats)
+	}
+
+	return vs, args.Error(1)
+}
+
+type internalMockVideoRepository struct {
+	MockVideoRepository
+}
+
+func (r *internalMockVideoRepository) createVideo(ctx context.Context, q helpers.Querier, video YoutubeVideo) (YoutubeVideo, error) {
+	args := r.Called(ctx, q, video)
+
+	var v YoutubeVideo
+	if args.Get(0) != nil {
+		v = args.Get(0).(YoutubeVideo)
+	}
+
+	return v, args.Error(1)
+}
+
+func (r *internalMockVideoRepository) getVideo(ctx context.Context, q helpers.Querier, videoID int64) (YoutubeVideo, bool, error) {
+	args := r.Called(ctx, q, videoID)
+
+	var v YoutubeVideo
+	if args.Get(0) != nil {
+		v = args.Get(0).(YoutubeVideo)
+	}
+
+	return v, args.Get(1).(bool), args.Error(2)
+}
+
+func (r *internalMockVideoRepository) getVideoByExternalId(ctx context.Context, q helpers.Querier, externalID string) (YoutubeVideo, bool, error) {
+	args := r.Called(ctx, q, externalID)
+
+	var v YoutubeVideo
+	if args.Get(0) != nil {
+		v = args.Get(0).(YoutubeVideo)
+	}
+
+	return v, args.Get(1).(bool), args.Error(2)
+}
+
+func (r *internalMockVideoRepository) getVideoStat(ctx context.Context, q helpers.Querier, videoID int64) ([]YoutubeVideoStats, error) {
+	args := r.Called(ctx, q, videoID)
+
+	var out []YoutubeVideoStats
+	if args.Get(0) != nil {
+		out = args.Get(0).([]YoutubeVideoStats)
+	}
+
+	return out, args.Error(1)
+}
+
+func (r *internalMockVideoRepository) getVideosByChannelPaginated(ctx context.Context, q helpers.Querier, channelID int64, offset int, limit int) ([]YoutubeVideo, error) {
+	args := r.Called(ctx, q, channelID, offset, limit)
+
+	var out []YoutubeVideo
+	if args.Get(0) != nil {
+		out = args.Get(0).([]YoutubeVideo)
+	}
+
+	return out, args.Error(1)
+}
+
+func (r *internalMockVideoRepository) getVideosByChannelCount(ctx context.Context, q helpers.Querier, channelID int64) (int, error) {
+	args := r.Called(ctx, q, channelID)
+
+	return args.Get(0).(int), args.Error(1)
+}
+
+func (r *internalMockVideoRepository) updateVideoCheckedAt(ctx context.Context, q helpers.Querier, videoID int64, checkedAt time.Time) error {
+	args := r.Called(ctx, q, videoID, checkedAt)
+	return args.Error(0)
 }
 
 type internalMockChannelRepository struct {
@@ -169,4 +326,41 @@ type MockTxController struct {
 
 func (m *MockTxController) Begin(ctx context.Context) (pgx.Tx, error) {
 	return &MockTx{}, nil
+}
+
+type MockVideoService struct {
+	mock.Mock
+}
+
+func (s *MockVideoService) CreateVideo(ctx context.Context, video YoutubeVideo) (YoutubeVideo, bool, error) {
+	args := s.Called(ctx, video)
+
+	var v YoutubeVideo
+	if args.Get(0) != nil {
+		v = args.Get(0).(YoutubeVideo)
+	}
+
+	return v, args.Get(1).(bool), args.Error(2)
+}
+
+func (s *MockVideoService) GetVideoStats(ctx context.Context, videoID int64) (YoutubeVideoStatsInfo, bool, error) {
+	args := s.Called(ctx, videoID)
+
+	var info YoutubeVideoStatsInfo
+	if args.Get(0) != nil {
+		info = args.Get(0).(YoutubeVideoStatsInfo)
+	}
+
+	return info, args.Get(1).(bool), args.Error(2)
+}
+
+func (s *MockVideoService) GetVideosByChannel(ctx context.Context, channelID int64, page int, pageSize int) (YoutubeVideosInfo, bool, error) {
+	args := s.Called(ctx, channelID, page, pageSize)
+
+	var info YoutubeVideosInfo
+	if args.Get(0) != nil {
+		info = args.Get(0).(YoutubeVideosInfo)
+	}
+
+	return info, args.Get(1).(bool), args.Error(2)
 }
