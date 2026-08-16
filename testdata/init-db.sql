@@ -1,1 +1,1 @@
--- fill test db data script (db structure is stored in database/schema.sql)
+-- fill test db data script (db structure is stored in k8s/atlas-schema/atlas-schema.yaml)

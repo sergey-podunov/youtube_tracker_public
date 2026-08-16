@@ -16,6 +16,8 @@ import (
 type channelStatView struct {
 	YoutubeChannelID int64
 	SubscribersCount int64
+	ViewCount        int64
+	VideoCount       int64
 	CreatedAt        time.Time
 }
 
@@ -25,6 +27,8 @@ func toYoutubeChannelStatsView(in []YoutubeChannelStats) []channelStatView {
 		out[i] = channelStatView{
 			YoutubeChannelID: stat.YoutubeChannelID,
 			SubscribersCount: stat.SubscribersCount,
+			VideoCount:       stat.VideoCount,
+			ViewCount:        stat.ViewCount,
 			CreatedAt:        stat.CreatedAt,
 		}
 	}
@@ -53,11 +57,15 @@ func TestYoutubeChannelRepository_GetChannelStat(t *testing.T) {
 				{
 					YoutubeChannelID: 84374,
 					SubscribersCount: 5,
+					ViewCount:        6,
+					VideoCount:       7,
 					CreatedAt:        helpers.ParseTime("2025-11-12T05:06:07Z"),
 				},
 				{
 					YoutubeChannelID: 84374,
 					SubscribersCount: 7,
+					ViewCount:        8,
+					VideoCount:       9,
 					CreatedAt:        helpers.ParseTime("2025-11-15T05:06:07Z"),
 				},
 				{
@@ -70,11 +78,15 @@ func TestYoutubeChannelRepository_GetChannelStat(t *testing.T) {
 				{
 					YoutubeChannelID: 84374,
 					SubscribersCount: 5,
+					ViewCount:        6,
+					VideoCount:       7,
 					CreatedAt:        helpers.ParseTime("2025-11-12T05:06:07Z"),
 				},
 				{
 					YoutubeChannelID: 84374,
 					SubscribersCount: 7,
+					ViewCount:        8,
+					VideoCount:       9,
 					CreatedAt:        helpers.ParseTime("2025-11-15T05:06:07Z"),
 				},
 			},
@@ -101,12 +113,12 @@ func TestYoutubeChannelRepository_GetChannelStat(t *testing.T) {
 				{
 					YoutubeChannelId: int64(84374),
 					ExternalID:       "UC-lHJZR3Gqxm24_Vd_AJ5Yw",
-					Name:             "Google Developers",
+					Title:            "Google Developers",
 				},
 				{
 					YoutubeChannelId: int64(534),
 					ExternalID:       "abc",
-					Name:             "another channel",
+					Title:            "another channel",
 				},
 			}
 			if err := insertChannelsWithId(ctx, tx, channels); err != nil {
@@ -132,15 +144,20 @@ func insertStats(ctx context.Context, tx pgx.Tx, statsBeforeTest []YoutubeChanne
 			INSERT INTO youtube_channel_stat (
 					youtube_channel_id,
 					created_at,
-					subscribers_count
+					subscribers_count,
+			        video_count,
+			        view_count
 			) VALUES (
-				$1,
-				$2,
-				$3
+				$1, $2, $3, $4, $5
 			)`
 
 	for _, stat := range statsBeforeTest {
-		_, err := tx.Exec(ctx, query, stat.YoutubeChannelID, stat.CreatedAt, stat.SubscribersCount)
+		_, err := tx.Exec(ctx, query,
+			stat.YoutubeChannelID,
+			stat.CreatedAt,
+			stat.SubscribersCount,
+			stat.VideoCount,
+			stat.ViewCount)
 		if err != nil {
 			return err
 		}

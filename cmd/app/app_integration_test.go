@@ -15,7 +15,7 @@ import (
 	"youtube_tracker/internal/api"
 	"youtube_tracker/internal/helpers"
 	"youtube_tracker/internal/notify"
-	"youtube_tracker/internal/youtube"
+	"youtube_tracker/internal/ytclient"
 
 	"github.com/ogen-go/ogen/conv"
 	"github.com/stretchr/testify/assert"
@@ -27,39 +27,73 @@ const host = "localhost"
 const port = 8081
 
 type MockYoutubeClient struct {
-	GetChannelIdFunc   func(channelName string) (string, error)
-	GetChannelDataFunc func(channelId string) (youtube.ChannelData, error)
+	GetChannelDataFunc       func(channelId string) (ytclient.ChannelData, error)
+	GetChannelByHandleFunc   func(handle string) (ytclient.ChannelData, error)
+	GetChannelByUsernameFunc func(username string) (ytclient.ChannelData, error)
+	GetChannelVideosFunc     func(channelId string, maxResults int64) ([]ytclient.VideoData, error)
+	GetVideosDataFunc        func(videoIds []string) ([]ytclient.VideoData, error)
 }
 
-func (m *MockYoutubeClient) GetChannelId(ctx context.Context, channelName string) (string, error) {
-	if m.GetChannelIdFunc != nil {
-		return m.GetChannelIdFunc(channelName)
-	}
-	return "", fmt.Errorf("GetChannelId not implemented in mock")
-}
-
-func (m *MockYoutubeClient) GetChannelData(ctx context.Context, channelId string) (youtube.ChannelData, error) {
+func (m *MockYoutubeClient) GetChannelData(ctx context.Context, channelId string) (ytclient.ChannelData, error) {
 	if m.GetChannelDataFunc != nil {
 		return m.GetChannelDataFunc(channelId)
 	}
-	return youtube.ChannelData{}, fmt.Errorf("GetChannelData not implemented in mock")
+	return ytclient.ChannelData{}, fmt.Errorf("GetChannelData not implemented in mock")
+}
+
+func (m *MockYoutubeClient) GetChannelByHandle(ctx context.Context, handle string) (ytclient.ChannelData, error) {
+	if m.GetChannelByHandleFunc != nil {
+		return m.GetChannelByHandleFunc(handle)
+	}
+	return ytclient.ChannelData{}, fmt.Errorf("GetChannelByHandle not implemented in mock")
+}
+
+func (m *MockYoutubeClient) GetChannelByUsername(ctx context.Context, username string) (ytclient.ChannelData, error) {
+	if m.GetChannelByUsernameFunc != nil {
+		return m.GetChannelByUsernameFunc(username)
+	}
+	return ytclient.ChannelData{}, fmt.Errorf("GetChannelByUsername not implemented in mock")
+}
+
+func (m *MockYoutubeClient) GetChannelVideos(ctx context.Context, channelId string, maxResults int64) ([]ytclient.VideoData, error) {
+	if m.GetChannelVideosFunc != nil {
+		return m.GetChannelVideosFunc(channelId, maxResults)
+	}
+	return nil, fmt.Errorf("GetChannelVideos not implemented in mock")
+}
+
+func (m *MockYoutubeClient) GetVideosData(ctx context.Context, videoIds []string) ([]ytclient.VideoData, error) {
+	if m.GetVideosDataFunc != nil {
+		return m.GetVideosDataFunc(videoIds)
+	}
+	return nil, fmt.Errorf("GetVideosData not implemented in mock")
 }
 
 var mockClient = &MockYoutubeClient{
-	GetChannelIdFunc: func(channelName string) (string, error) {
-		if channelName == "Test Channel" {
-			return "TestYoutubeID", nil
-		}
-		return "", fmt.Errorf("channel not found: %s", channelName)
-	},
-	GetChannelDataFunc: func(channelId string) (youtube.ChannelData, error) {
-		if channelId == "TestYoutubeID" {
-			return youtube.ChannelData{
+	GetChannelDataFunc: func(channelId string) (ytclient.ChannelData, error) {
+		switch channelId {
+		case "TestYoutubeID":
+			return ytclient.ChannelData{
 				ChannelID:        "TestYoutubeID",
+				Title:            "Test Channel",
+				Description:      "This is a test channel",
+				CustomURL:        "@TestChannel",
 				SubscribersCount: 151617,
+				ViewCount:        123456789,
+				VideoCount:       34562,
+			}, nil
+		case "TestYoutubeListID":
+			return ytclient.ChannelData{
+				ChannelID: "TestYoutubeListID",
+				Title:     "Test Channel for list",
+			}, nil
+		case "TestYoutubeID_conflict":
+			return ytclient.ChannelData{
+				ChannelID: "TestYoutubeID_conflict",
+				Title:     "Test Channel conflict",
 			}, nil
 		}
-		return youtube.ChannelData{}, fmt.Errorf("channel data not found for ID: %s", channelId)
+		return ytclient.ChannelData{}, fmt.Errorf("channel data not found for ID: %s", channelId)
 	},
 }
 
@@ -89,15 +123,12 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		respCode, respStatus := executePost(
 			t,
 			url+"/youtube/channel",
-			&api.YoutubeChannel{
-				Name:      "Test Channel",
-				YoutubeID: "TestYoutubeID",
-			},
+			&api.YoutubeChannelRequest{URL: "https://youtube.com/channel/TestYoutubeID"},
 			channelPostResp,
 		)
 
 		assert.Equal(t, http.StatusCreated, respCode, "Response code: %s", respStatus)
-		assert.Equal(t, "Test Channel", channelPostResp.Name)
+		assert.Equal(t, "Test Channel", channelPostResp.Title)
 		assert.Equal(t, "TestYoutubeID", channelPostResp.YoutubeID)
 		assert.NotEmpty(t, channelPostResp.CreatedAt.Value)
 		assert.Greater(t, channelPostResp.ID.Value, int64(0))
@@ -106,88 +137,45 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		respCode, respStatus = executeGet(t, url+"/youtube/channel/"+conv.Int64ToString(channelPostResp.ID.Value), &channelGetResp)
 
 		assert.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
-		assert.Equal(t, "Test Channel", channelGetResp.Name)
+		assert.Equal(t, "Test Channel", channelGetResp.Title)
+		assert.Equal(t, "This is a test channel", channelGetResp.Description.Value)
+		assert.Equal(t, "@TestChannel", channelGetResp.CustomURL.Value)
 		assert.Equal(t, "TestYoutubeID", channelGetResp.YoutubeID)
 		assert.Equal(t, channelPostResp.CreatedAt.Value, channelGetResp.CreatedAt.Value)
 		assert.Equal(t, channelPostResp.ID.Value, channelGetResp.ID.Value)
 	})
 
 	t.Run("Test /youtube/channels without params", func(t *testing.T) {
-		channelPostResp := &api.YoutubeChannel{}
+		channelPostResp := &api.YoutubeChannelClientError{}
 		respCode, respStatus := executePost(
 			t,
 			url+"/youtube/channel",
-			&api.YoutubeChannel{
-				Name:      "Test Channel for list",
-				YoutubeID: "TestYoutubeListID",
-			},
+			&api.YoutubeChannelRequest{},
 			channelPostResp,
 		)
 
-		newChannelID := channelPostResp.ID.Value
-
-		channelListGetResp := api.YoutubeChannelList{}
-		respCode, respStatus = executeGet(t, url+"/youtube/channels", &channelListGetResp)
-
-		assert.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
-
-		assert.Equal(t, channelListGetResp.CurrentPage, 1)
-		assert.Equal(t, channelListGetResp.PageSize, 20)
-		assert.Equal(t, channelListGetResp.TotalPages, 1)
-
-		var channelIDs []int64
-		for _, item := range channelListGetResp.Channels {
-			if item.ID.Set { // Check if the ID value is set
-				channelIDs = append(channelIDs, item.ID.Value)
-			}
-		}
-
-		assert.GreaterOrEqual(t, len(channelListGetResp.Channels), 1)
-		assert.Contains(t, channelIDs, newChannelID)
+		assert.Equal(t, http.StatusBadRequest, respCode, "Response code: %s", respStatus)
+		assert.Truef(t, len(channelPostResp.Message) != 0, "Channel post response message should not be empty")
 	})
-	
-		t.Run("Test /youtube/channels with params endpoint", func(t *testing.T) {
-		channelPostResp := &api.YoutubeChannel{}
+
+	t.Run("Test /youtube/channels with wrong url", func(t *testing.T) {
+		channelPostResp := &api.YoutubeChannelClientError{}
 		respCode, respStatus := executePost(
 			t,
 			url+"/youtube/channel",
-			&api.YoutubeChannel{
-				Name:      "Test Channel for list with params",
-				YoutubeID: "TestYoutubeListID",
-			},
+			&api.YoutubeChannelRequest{URL: "https://youtube.com/"},
 			channelPostResp,
 		)
 
-		newChannelID := channelPostResp.ID.Value
-
-		channelListGetResp := api.YoutubeChannelList{}
-		respCode, respStatus = executeGet(t, url+"/youtube/channels?page=1&page_size=5", &channelListGetResp)
-
-		assert.Equal(t, http.StatusOK, respCode, "Response code: %s", respStatus)
-
-		assert.Equal(t, channelListGetResp.CurrentPage, 1)
-		assert.Equal(t, channelListGetResp.PageSize, 5)
-		assert.Equal(t, channelListGetResp.TotalPages, 1)
-
-		var channelIDs []int64
-		for _, item := range channelListGetResp.Channels {
-			if item.ID.Set { // Check if the ID value is set
-				channelIDs = append(channelIDs, item.ID.Value)
-			}
-		}
-
-		assert.GreaterOrEqual(t, len(channelListGetResp.Channels), 1)
-		assert.Contains(t, channelIDs, newChannelID)
+		assert.Equal(t, http.StatusBadRequest, respCode, "Response code: %s", respStatus)
+		assert.Truef(t, len(channelPostResp.Message) != 0, "Channel post response message should not be empty")
 	})
 
 	t.Run("/youtube/channel posts conflict", func(t *testing.T) {
 		executePost(
 			t,
 			url+"/youtube/channel",
-			&api.YoutubeChannel{
-				Name:      "Test Channel conflict",
-				YoutubeID: "TestYoutubeID_conflict",
-			},
+			&api.YoutubeChannelRequest{URL: "https://youtube.com/channel/TestYoutubeID_conflict"},
 			nil,
 		)
 
@@ -195,15 +183,12 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		respCode, respStatus := executePost(
 			t,
 			url+"/youtube/channel",
-			&api.YoutubeChannel{
-				Name:      "Test Channel conflict",
-				YoutubeID: "TestYoutubeID_conflict",
-			},
+			&api.YoutubeChannelRequest{URL: "https://youtube.com/channel/TestYoutubeID_conflict"},
 			channelErrorResp,
 		)
 
 		assert.Equal(t, http.StatusConflict, respCode, "Response code: %s", respStatus)
-		assert.Equal(t, "Test Channel conflict", channelErrorResp.Name)
+		assert.Equal(t, "Test Channel conflict", channelErrorResp.Title)
 		assert.Equal(t, "TestYoutubeID_conflict", channelErrorResp.YoutubeID)
 	})
 
@@ -214,9 +199,9 @@ func TestMainHttpHandlerIntegration(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, respCode, "Response code: %s", respStatus)
 	})
 
-	t.Run("Test youtube channel statistics", func(t *testing.T) {
+	t.Run("Test YouTube channel statistics", func(t *testing.T) {
 		channelPostResp := &api.YoutubeChannel{}
-		_, _ = executePost(t, url+"/youtube/channel", &api.YoutubeChannel{Name: "Test Channel", YoutubeID: "TestYoutubeID"}, channelPostResp)
+		_, _ = executePost(t, url+"/youtube/channel", &api.YoutubeChannelRequest{URL: "https://youtube.com/channel/TestYoutubeID"}, channelPostResp)
 
 		generationStartedResp := api.StatGenerationStarted{}
 		respCode, respStatus := executePost(t, url+"/schedule", nil, &generationStartedResp)
@@ -316,7 +301,7 @@ func createPgContainer(ctx context.Context) *helpers.PostgresContainer {
 }
 
 func createApp(ctx context.Context, host string, port int, dbUrl string) *App {
-	app, err := NewApp(ctx, port, dbUrl, "", "*", notify.NotifierConfig{}, mockClient)
+	app, err := NewApp(ctx, port, dbUrl, "", "*", notify.NotifierConfig{}, nil, mockClient)
 	if err != nil {
 		log.Fatal(err)
 	}

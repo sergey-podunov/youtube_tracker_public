@@ -13,14 +13,19 @@ import (
 	"youtube_tracker/internal/helpers"
 	mainHandler "youtube_tracker/internal/http_handler"
 	"youtube_tracker/internal/notify"
+	"youtube_tracker/internal/redisclient"
+	"youtube_tracker/internal/redisdebug"
+	"youtube_tracker/internal/storage"
 	"youtube_tracker/internal/youtube"
 	"youtube_tracker/internal/youtube/stats"
+	"youtube_tracker/internal/ytclient"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/ogen-go/ogen/middleware"
+	"github.com/redis/go-redis/v9"
 )
-
-const numWorkers = 10
 
 var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil)).With(slog.String("component", "Main"))
 
@@ -33,12 +38,13 @@ const (
 )
 
 type App struct {
-	dbUrl      string
-	httpServer *http.Server
+	dbUrl       string
+	httpServer  *http.Server
+	redisClient *redis.Client
 }
 
 func NewApp(ctx context.Context, port int, dbURL string, googleApiKey string, allowedOrigin string, notifierConfig notify.NotifierConfig,
-	ytClient youtube.Client) (*App, error) {
+	redisConfig *redisclient.Config, ytClient ytclient.Client) (*App, error) {
 	logger.Info("Starting app", "dockerTag", helpers.GetBuildTag())
 
 	dbPool, err := createDbPool(ctx, logger, dbURL)
@@ -47,15 +53,16 @@ func NewApp(ctx context.Context, port int, dbURL string, googleApiKey string, al
 	}
 
 	channelRepository := stats.NewChannelRepository(logger, dbPool)
+	videoRepository := stats.NewVideoRepository(logger, dbPool)
 
-	channelService := stats.NewYoutubeChannelService(logger, dbPool, channelRepository)
+	videoService := stats.NewYoutubeVideoService(logger, dbPool, videoRepository, channelRepository)
 
-	var client youtube.Client
+	var client ytclient.Client
 	if ytClient != nil {
 		client = ytClient
 	} else {
 		notifier := notify.NewNotifier(logger, notifierConfig)
-		httpClient, err := youtube.NewHttpClient(ctx, notifier, googleApiKey)
+		httpClient, err := ytclient.NewHttpClient(ctx, notifier, googleApiKey)
 		if err != nil {
 			return nil, err
 		}
@@ -63,13 +70,53 @@ func NewApp(ctx context.Context, port int, dbURL string, googleApiKey string, al
 		client = httpClient
 	}
 
-	workers := make([]youtube.Worker, numWorkers)
-	for i := 0; i < numWorkers; i++ {
-		workers[i] = youtube.NewStatisticsWorker(logger, channelRepository, client)
+	var fileFetcher storage.FileFetcher
+	if s3Endpoint := helpers.GetEnv("S3_ENDPOINT"); s3Endpoint != "" {
+		s3AccessKey := helpers.GetEnvWithFallback("S3_ACCESS_KEY", "")
+		s3SecretKey := helpers.GetEnvWithFallback("S3_SECRET_KEY", "")
+		s3Bucket := helpers.GetEnvWithFallback("S3_BUCKET", "thumbnails")
+
+		if s3AccessKey == "" || s3SecretKey == "" {
+			logger.Warn("S3 credentials not configured, storage disabled")
+		} else {
+			minioClient, err := minio.New(s3Endpoint, &minio.Options{
+				Creds:  credentials.NewStaticV4(s3AccessKey, s3SecretKey, ""),
+				Secure: false,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			s3Storage := storage.NewS3StorageMinio(logger, minioClient, s3Bucket)
+			fileFetcher = storage.NewFileFetcher(logger, s3Storage, &http.Client{Timeout: 30 * time.Second})
+			logger.Info("S3 storage enabled", "endpoint", s3Endpoint, "bucket", s3Bucket)
+		}
 	}
 
-	collector := youtube.NewStatisticsCollector(logger, channelRepository, workers, 10)
-	httpHandler := mainHandler.NewHTTPHandler(logger, collector, channelService, channelRepository)
+	var redisClient *redis.Client
+	if redisConfig != nil {
+		redisClient, err = redisclient.NewClient(ctx, logger, *redisConfig)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		logger.Info("Redis not configured, skipping")
+	}
+
+	channelService := stats.NewYoutubeChannelService(logger, dbPool, channelRepository, client, fileFetcher)
+
+	collector := youtube.NewStatisticsCollector(logger)
+
+	channelWorker := youtube.NewChannelWorker(logger, channelRepository, client, 50)
+	channelJobController := youtube.NewWorkerJobController(channelWorker)
+
+	videoWorker := youtube.NewVideoWorker(logger, videoRepository, client, 50)
+	videoJobController := youtube.NewWorkerJobController(videoWorker)
+
+	videoDiscoveryWorker := youtube.NewVideoDiscoveryWorker(logger, channelRepository, videoService, client, 50, 10)
+	videoDiscoveryJobController := youtube.NewWorkerJobController(videoDiscoveryWorker)
+
+	httpHandler := mainHandler.NewHTTPHandler(logger, collector, channelJobController, videoJobController, videoDiscoveryJobController, channelService, videoService, channelRepository, videoRepository)
 
 	chainMiddleware := middleware.ChainMiddlewares(
 		mainHandler.RequestIDGenerator,
@@ -86,16 +133,28 @@ func NewApp(ctx context.Context, port int, dbURL string, googleApiKey string, al
 		return nil, err
 	}
 
+	// rootHandler serves the application via corsHandler. When Redis is
+	// configured, the temporary /redis/* debug endpoints are mounted in
+	// front of it; everything else falls through to the app.
+	var rootHandler = corsHandler
+	if redisClient != nil {
+		mux := http.NewServeMux()
+		redisdebug.NewHandler(logger.With(slog.String("component", "RedisDebug")), redisClient).Register(mux)
+		mux.Handle("/", corsHandler)
+		rootHandler = mux
+	}
+
 	httpServer := &http.Server{
 		Addr:         ":" + strconv.Itoa(port),
-		Handler:      corsHandler,
+		Handler:      rootHandler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
 	return &App{
-		dbUrl:      dbURL,
-		httpServer: httpServer,
+		dbUrl:       dbURL,
+		httpServer:  httpServer,
+		redisClient: redisClient,
 	}, nil
 }
 
@@ -151,6 +210,12 @@ func (app *App) Start() {
 }
 
 func (app *App) Stop(ctx context.Context) error {
+	if app.redisClient != nil {
+		if err := app.redisClient.Close(); err != nil {
+			logger.Warn("Failed to close Redis client", "error", err)
+		}
+	}
+
 	return app.httpServer.Shutdown(ctx)
 }
 
@@ -182,7 +247,21 @@ func main() {
 		SlackWebhookURL: helpers.GetEnvWithFallback("SLACK_WEBHOOK_URL", ""),
 	}
 
-	app, err := NewApp(ctx, port, dbUrl, googleApiKey, allowedOrigin, notifierConfig, nil)
+	var redisConfig *redisclient.Config
+	if redisAddr := helpers.GetEnv("REDIS_ADDR"); redisAddr != "" {
+		redisPassword, err := helpers.GetSecret("REDIS_PASSWORD")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		redisConfig = &redisclient.Config{
+			Addr:     redisAddr,
+			Password: redisPassword,
+			DB:       int(helpers.ToInt32(helpers.GetEnv("REDIS_DB"), 0)),
+		}
+	}
+
+	app, err := NewApp(ctx, port, dbUrl, googleApiKey, allowedOrigin, notifierConfig, redisConfig, nil)
 
 	if err != nil {
 		log.Fatal(err)

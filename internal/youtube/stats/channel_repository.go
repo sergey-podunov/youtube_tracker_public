@@ -45,18 +45,19 @@ func NewChannelRepository(logger *slog.Logger, db Database) *YoutubeChannelRepos
 }
 
 func (r *YoutubeChannelRepository) createChannel(ctx context.Context, q helpers.Querier, channel YoutubeChannel) (YoutubeChannel, error) {
-	logger := helpers.LoggerFromContext(ctx, channelRepositoryComponentName, r.logger)
+	logger := helpers.LoggerFromContextWithDefault(ctx, channelRepositoryComponentName, r.logger)
 	logger.Info("Creating channel", slog.Any("channel", channel))
 	query := `
 		INSERT INTO youtube_channel (
-			channel_name, 
-			external_id, 
+			title,
+			external_id,
+	      	custom_url,
+	      	description,
+          	published_at,
 			created_at
 		) VALUES (
-			$1, 
-			$2, 
-			$3
-		) 
+			$1, $2, $3, $4, $5, $6
+		)
 		RETURNING youtube_channel_id`
 
 	if channel.CreatedAt.IsZero() {
@@ -64,7 +65,13 @@ func (r *YoutubeChannelRepository) createChannel(ctx context.Context, q helpers.
 	}
 
 	var insertedID int64
-	if err := q.QueryRow(ctx, query, channel.Name, channel.ExternalID, channel.CreatedAt).Scan(&insertedID); err != nil {
+	if err := q.QueryRow(ctx, query,
+		channel.Title,
+		channel.ExternalID,
+		channel.CustomURL,
+		channel.Description,
+		channel.PublishedAt,
+		channel.CreatedAt).Scan(&insertedID); err != nil {
 		logger.Error("Failed to insert channel", slog.Any("channel", channel), "error", err)
 		return YoutubeChannel{}, err
 	}
@@ -82,8 +89,11 @@ func (r *YoutubeChannelRepository) getChannel(ctx context.Context, q helpers.Que
 	query := `
 		SELECT
 			youtube_channel_id,
-			channel_name,
+			title,
 			external_id,
+			custom_url,
+			description,
+			published_at,
 			created_at
 		FROM
 			youtube_channel
@@ -92,7 +102,13 @@ func (r *YoutubeChannelRepository) getChannel(ctx context.Context, q helpers.Que
 
 	var channel YoutubeChannel
 	err := q.QueryRow(ctx, query, channelID).
-		Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalID, &channel.CreatedAt)
+		Scan(&channel.YoutubeChannelId,
+			&channel.Title,
+			&channel.ExternalID,
+			&channel.CustomURL,
+			&channel.Description,
+			&channel.PublishedAt,
+			&channel.CreatedAt)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -106,19 +122,28 @@ func (r *YoutubeChannelRepository) getChannel(ctx context.Context, q helpers.Que
 
 func (r *YoutubeChannelRepository) getChannelByExternalId(ctx context.Context, q helpers.Querier, externalID string) (YoutubeChannel, bool, error) {
 	query := `
-		SELECT 
-			youtube_channel_id, 
-			channel_name, 
-			external_id, 
-			created_at 
-		FROM 
-			youtube_channel 
-		WHERE 
+		SELECT
+			youtube_channel_id,
+			title,
+			external_id,
+			custom_url,
+			description,
+			published_at,
+			created_at
+		FROM
+			youtube_channel
+		WHERE
 			external_id = $1`
 
 	var channel YoutubeChannel
 	err := q.QueryRow(ctx, query, externalID).
-		Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalID, &channel.CreatedAt)
+		Scan(&channel.YoutubeChannelId,
+			&channel.Title,
+			&channel.ExternalID,
+			&channel.CustomURL,
+			&channel.Description,
+			&channel.PublishedAt,
+			&channel.CreatedAt)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -131,18 +156,18 @@ func (r *YoutubeChannelRepository) getChannelByExternalId(ctx context.Context, q
 }
 
 func (r *YoutubeChannelRepository) StoreSubscriptionsCount(ctx context.Context, stats YoutubeChannelStats) (YoutubeChannelStats, error) {
-	logger := helpers.LoggerFromContext(ctx, channelRepositoryComponentName, r.logger)
+	logger := helpers.LoggerFromContextWithDefault(ctx, channelRepositoryComponentName, r.logger)
 
 	query := `
 		INSERT INTO youtube_channel_stat (
-			youtube_channel_id, 
-			subscribers_count, 
+			youtube_channel_id,
+			subscribers_count,
+		    video_count,
+		    view_count,
 			created_at
 		) VALUES (
-			$1, 
-			$2, 
-			$3
-		) 
+			$1, $2, $3, $4, $5
+		)
 		RETURNING youtube_channel_stat_id`
 
 	if stats.CreatedAt.IsZero() {
@@ -150,7 +175,12 @@ func (r *YoutubeChannelRepository) StoreSubscriptionsCount(ctx context.Context, 
 	}
 
 	var insertedID int64
-	if err := r.db.QueryRow(ctx, query, stats.YoutubeChannelID, stats.SubscribersCount, stats.CreatedAt).Scan(&insertedID); err != nil {
+	if err := r.db.QueryRow(ctx, query,
+		stats.YoutubeChannelID,
+		stats.SubscribersCount,
+		stats.VideoCount,
+		stats.ViewCount,
+		stats.CreatedAt).Scan(&insertedID); err != nil {
 		logger.Error("Failed to insert channel stat", slog.Any("channel_stat", stats), "error", err)
 		return YoutubeChannelStats{}, err
 	}
@@ -162,13 +192,16 @@ func (r *YoutubeChannelRepository) StoreSubscriptionsCount(ctx context.Context, 
 
 func (r *YoutubeChannelRepository) GetChannels(ctx context.Context, checkedBefore time.Time, count int) ([]YoutubeChannel, error) {
 	query := `
-		SELECT 
-			youtube_channel_id, 
-			channel_name, 
-			external_id, 
+		SELECT
+			youtube_channel_id,
+			title,
+			external_id,
+			custom_url,
+			description,
+			published_at,
 			created_at,
 			checked_at
-		FROM 
+		FROM
 			youtube_channel
 		WHERE (checked_at <= $1 or checked_at is null)
 		LIMIT $2`
@@ -184,7 +217,15 @@ func (r *YoutubeChannelRepository) GetChannels(ctx context.Context, checkedBefor
 
 	for rows.Next() {
 		var channel YoutubeChannel
-		if err := rows.Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalID, &channel.CreatedAt, &channel.CheckedAt); err != nil {
+		if err := rows.Scan(
+			&channel.YoutubeChannelId,
+			&channel.Title,
+			&channel.ExternalID,
+			&channel.CustomURL,
+			&channel.Description,
+			&channel.PublishedAt,
+			&channel.CreatedAt,
+			&channel.CheckedAt); err != nil {
 			return nil, err
 		}
 
@@ -202,8 +243,11 @@ func (r *YoutubeChannelRepository) getChannelsPaginated(ctx context.Context, q h
 	query := `
 		SELECT
 			youtube_channel_id,
-			channel_name,
+			title,
 			external_id,
+			custom_url,
+			description,
+			published_at,
 			created_at,
 			checked_at
 		FROM
@@ -220,7 +264,15 @@ func (r *YoutubeChannelRepository) getChannelsPaginated(ctx context.Context, q h
 	var channels []YoutubeChannel
 	for rows.Next() {
 		var channel YoutubeChannel
-		if err := rows.Scan(&channel.YoutubeChannelId, &channel.Name, &channel.ExternalID, &channel.CreatedAt, &channel.CheckedAt); err != nil {
+		if err := rows.Scan(
+			&channel.YoutubeChannelId,
+			&channel.Title,
+			&channel.ExternalID,
+			&channel.CustomURL,
+			&channel.Description,
+			&channel.PublishedAt,
+			&channel.CreatedAt,
+			&channel.CheckedAt); err != nil {
 			return nil, err
 		}
 
@@ -252,6 +304,8 @@ func (r *YoutubeChannelRepository) getChannelStat(ctx context.Context, q helpers
 			youtube_channel_stat_id,
 			youtube_channel_id,
 			subscribers_count,
+			video_count,
+			view_count,
 			created_at
 		FROM
 			youtube_channel_stat
@@ -272,7 +326,13 @@ func (r *YoutubeChannelRepository) getChannelStat(ctx context.Context, q helpers
 	var stats []YoutubeChannelStats
 	for rows.Next() {
 		var stat YoutubeChannelStats
-		if err := rows.Scan(&stat.YoutubeChannelStatID, &stat.YoutubeChannelID, &stat.SubscribersCount, &stat.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&stat.YoutubeChannelStatID,
+			&stat.YoutubeChannelID,
+			&stat.SubscribersCount,
+			&stat.VideoCount,
+			&stat.ViewCount,
+			&stat.CreatedAt); err != nil {
 			return nil, err
 		}
 		stats = append(stats, stat)

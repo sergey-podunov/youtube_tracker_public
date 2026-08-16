@@ -2,16 +2,19 @@ package stats
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math"
 	"time"
 	"youtube_tracker/internal/helpers"
+	"youtube_tracker/internal/storage"
+	"youtube_tracker/internal/ytclient"
 
 	"github.com/jackc/pgx/v5"
 )
 
 type ChannelService interface {
-	CreateChannel(ctx context.Context, channel YoutubeChannel) (YoutubeChannel, bool, error)
+	CreateChannelFromURL(ctx context.Context, channelURL string) (YoutubeChannel, bool, error)
 	GetChannelStats(ctx context.Context, ID int64, from *time.Time, to *time.Time) (YoutubeChannelStatsInfo, bool, error)
 	GetChannels(ctx context.Context, page int, pageSize int) (YoutubeChannelsInfo, error)
 }
@@ -32,23 +35,96 @@ type YoutubeChannelsInfo struct {
 }
 
 type YoutubeChannelService struct {
-	db         helpers.TxController
-	repository internalChannelRepository
-	logger     *slog.Logger
+	db          helpers.TxController
+	repository  internalChannelRepository
+	client      ytclient.Client
+	fileFetcher storage.FileFetcher
+	logger      *slog.Logger
 }
 
 const channelServiceComponentName = "YoutubeChannelService"
+const channelThumbnailKeyFormat = "/youtube/channel/%s.jpg"
 
-func NewYoutubeChannelService(logger *slog.Logger, db helpers.TxController, repository internalChannelRepository) *YoutubeChannelService {
+func NewYoutubeChannelService(logger *slog.Logger, db helpers.TxController, repository internalChannelRepository, client ytclient.Client, fileFetcher storage.FileFetcher) *YoutubeChannelService {
 	return &YoutubeChannelService{
-		db:         db,
-		repository: repository,
-		logger:     logger.With(slog.String("component", channelServiceComponentName)),
+		db:          db,
+		repository:  repository,
+		client:      client,
+		fileFetcher: fileFetcher,
+		logger:      logger.With(slog.String("component", channelServiceComponentName)),
 	}
 }
 
+func (s *YoutubeChannelService) CreateChannelFromURL(ctx context.Context, channelURL string) (YoutubeChannel, bool, error) {
+	parsed, err := ytclient.ParseChannelURL(channelURL)
+	if err != nil {
+		return YoutubeChannel{}, false, err
+	}
+
+	var data ytclient.ChannelData
+	switch parsed.Type {
+	case ytclient.LookupByID:
+		data, err = s.client.GetChannelData(ctx, parsed.Value)
+	case ytclient.LookupByHandle:
+		data, err = s.client.GetChannelByHandle(ctx, parsed.Value)
+	case ytclient.LookupByUsername:
+		data, err = s.client.GetChannelByUsername(ctx, parsed.Value)
+	}
+	if err != nil {
+		return YoutubeChannel{}, false, err
+	}
+
+	channel := YoutubeChannel{
+		ExternalID:  data.ChannelID,
+		Title:       data.Title,
+		Description: &data.Description,
+		CustomURL:   &data.CustomURL,
+	}
+
+	var createdChannel YoutubeChannel
+	var isNew bool
+
+	logger := helpers.LoggerFromContextWithDefault(ctx, channelServiceComponentName, s.logger)
+	err = helpers.RunInTx(ctx, s.db, func(ctx context.Context, tx pgx.Tx) error {
+		existing, ok, txErr := s.repository.getChannelByExternalId(ctx, tx, channel.ExternalID)
+		if txErr != nil {
+			return txErr
+		}
+
+		if ok {
+			logger.Warn("Channel already exists", slog.Any("channel", existing))
+			createdChannel = existing
+			return nil
+		}
+
+		newChannel, txErr := s.repository.createChannel(ctx, tx, channel)
+		if txErr != nil {
+			return txErr
+		}
+
+		createdChannel = newChannel
+		isNew = true
+
+		logger.Info("Channel created", slog.Any("channel", createdChannel))
+		return nil
+	})
+
+	if err != nil {
+		return createdChannel, isNew, err
+	}
+
+	if isNew && data.ThumbnailURL != "" && s.fileFetcher != nil {
+		objectKey := fmt.Sprintf(channelThumbnailKeyFormat, data.ChannelID)
+		if fetchErr := s.fileFetcher.FetchAndStore(ctx, data.ThumbnailURL, objectKey); fetchErr != nil {
+			logger.Warn("Failed to fetch/store thumbnail", slog.String("channel_id", data.ChannelID), "error", fetchErr)
+		}
+	}
+
+	return createdChannel, isNew, nil
+}
+
 func (s *YoutubeChannelService) GetChannelStats(ctx context.Context, ID int64, from *time.Time, to *time.Time) (YoutubeChannelStatsInfo, bool, error) {
-	logger := helpers.LoggerFromContext(ctx, channelServiceComponentName, s.logger)
+	logger := helpers.LoggerFromContextWithDefault(ctx, channelServiceComponentName, s.logger)
 
 	var statsInfo YoutubeChannelStatsInfo
 	var ok bool
@@ -90,58 +166,26 @@ func (s *YoutubeChannelService) GetChannelStats(ctx context.Context, ID int64, f
 	return statsInfo, ok, err
 }
 
-func (s *YoutubeChannelService) CreateChannel(ctx context.Context, channel YoutubeChannel) (YoutubeChannel, bool, error) {
-	var createdYoutubeChannel YoutubeChannel
-	var channelCreated bool
-
-	logger := helpers.LoggerFromContext(ctx, channelServiceComponentName, s.logger)
-	err := helpers.RunInTx(ctx, s.db, func(ctx context.Context, tx pgx.Tx) error {
-		existingChannel, ok, err := s.repository.getChannelByExternalId(ctx, tx, channel.ExternalID)
-		if err != nil {
-			return err
-		}
-
-		if ok {
-			logger.Warn("Channel already exists", slog.Any("channel", existingChannel))
-			createdYoutubeChannel = existingChannel
-			return nil
-		}
-
-		newChannel, err := s.repository.createChannel(ctx, tx, channel)
-		if err != nil {
-			return err
-		}
-
-		createdYoutubeChannel = newChannel
-		channelCreated = true
-
-		logger.Info("Channel created", slog.Any("channel", createdYoutubeChannel))
-		return nil
-	})
-
-	return createdYoutubeChannel, channelCreated, err
-}
-
 func (s *YoutubeChannelService) GetChannels(ctx context.Context, page int, pageSize int) (YoutubeChannelsInfo, error) {
 	var youtubeChannelsInfo YoutubeChannelsInfo
 
 	err := helpers.RunInTx(ctx, s.db, func(ctx context.Context, tx pgx.Tx) error {
 		offset := getOffsetByPage(page, pageSize)
 		pageSize = getPageSize(pageSize)
-		
+
 		channels, err := s.repository.getChannelsPaginated(ctx, tx, offset, pageSize)
 		if err != nil {
 			return err
 		}
-		
+
 		channelsCount, err := s.repository.getChannelsCount(ctx, tx)
 		if err != nil {
 			return err
 		}
-		
+
 		currentPage := getCurrentPage(page)
 		totalPages := getTotalPages(channelsCount, pageSize)
-		
+
 		youtubeChannelsInfo = YoutubeChannelsInfo{
 			CurrentPage: currentPage,
 			TotalPages:  totalPages,
@@ -150,7 +194,7 @@ func (s *YoutubeChannelService) GetChannels(ctx context.Context, page int, pageS
 		}
 		return nil
 	})
-	
+
 	return youtubeChannelsInfo, err
 }
 
